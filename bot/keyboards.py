@@ -89,13 +89,45 @@ _PICKER_REGIONS = [
 def region_picker_keyboard() -> InlineKeyboardMarkup:
     """Grid of common regions + an 'Other' button for manual entry.
 
-    Layout: one row per region (compact), with "Other" at the bottom.
+    Layout: one row per region (compact), with "Other" and "Home" at the bottom.
     """
     rows = [
         [InlineKeyboardButton(label, callback_data=f"region:{cc}")]
         for cc, label in _PICKER_REGIONS
     ]
-    rows.append([InlineKeyboardButton("✏️ Other (type code)", callback_data="region:manual")])
+    rows.append([InlineKeyboardButton("✏️ More Regions…", callback_data="region:all")])
+    rows.append([InlineKeyboardButton("⬅️ Home", callback_data="menu:main")])
+    return InlineKeyboardMarkup(rows)
+
+
+def all_regions_keyboard() -> InlineKeyboardMarkup:
+    """Full grid of every supported region with flag, currency name, and code.
+
+    Each button triggers ``region:<CC>`` so it reuses the same callback handler
+    as the picker. Two buttons per row for a compact layout.
+    """
+    _ALL_REGIONS = [
+        ("US", "🇺🇸", "USD"), ("TR", "🇹🇷", "TRY"), ("UA", "🇺🇦", "UAH"),
+        ("AR", "🇦🇷", "ARS"), ("CN", "🇨🇳", "CNY"), ("GB", "🇬🇧", "GBP"),
+        ("DE", "🇩🇪", "EUR"), ("RU", "🇷🇺", "RUB"), ("BR", "🇧🇷", "BRL"),
+        ("JP", "🇯🇵", "JPY"), ("KR", "🇰🇷", "KRW"), ("MX", "🇲🇽", "MXN"),
+        ("CA", "🇨🇦", "CAD"), ("AU", "🇦🇺", "AUD"), ("IN", "🇮🇳", "INR"),
+        ("CH", "🇨🇭", "CHF"), ("AE", "🇦🇪", "AED"),
+    ]
+
+    rows: list[list[InlineKeyboardButton]] = []
+    # Two buttons per row.
+    for i in range(0, len(_ALL_REGIONS), 2):
+        row: list[InlineKeyboardButton] = []
+        for cc, flag, cur in _ALL_REGIONS[i : i + 2]:
+            row.append(
+                InlineKeyboardButton(
+                    f"{flag} {cur} ({cc})", callback_data=f"region:{cc}"
+                )
+            )
+        rows.append(row)
+
+    rows.append([InlineKeyboardButton("⬅️ Back", callback_data="menu:region")])
     return InlineKeyboardMarkup(rows)
 
 

@@ -100,6 +100,12 @@ from bot.handlers.tf2 import (  # noqa: E402
     tf2_handler,
     tf2_refresh_callback,
 )
+from bot.handlers.settings import (  # noqa: E402
+    handle_region_input,
+    region_handler,
+    region_manual_callback,
+    region_select_callback,
+)
 
 
 # ── Text input dispatcher ────────────────────────────────────────────────────
@@ -120,9 +126,10 @@ async def text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if await handle_price_input(update, context):
         return
 
+    if await handle_region_input(update, context):
+        return
+
     # Future awaiting states go here:
-    # if await handle_region_input(update, context):
-    #     return
     # if await handle_wishlist_input(update, context):
     #     return
 
@@ -184,6 +191,17 @@ def main() -> None:
     # TF2 refresh button (refresh:tf2).
     app.add_handler(
         CallbackQueryHandler(tf2_refresh_callback, pattern=r"^refresh:tf2$")
+    )
+
+    # --- Step 9: /region handler ---
+    app.add_handler(CommandHandler("region", region_handler))
+    # Region selection from picker (region:TR, region:US, etc.).
+    app.add_handler(
+        CallbackQueryHandler(region_select_callback, pattern=r"^region:[A-Z]{2}$")
+    )
+    # More regions list (region:all).
+    app.add_handler(
+        CallbackQueryHandler(region_manual_callback, pattern=r"^region:all$")
     )
 
     # --- Text input dispatcher (must be LAST — lowest priority) ---

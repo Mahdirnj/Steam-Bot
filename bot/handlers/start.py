@@ -11,13 +11,15 @@ from loguru import logger
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.keyboards import MAIN_MENU_KEYBOARD, BACK_TO_MENU_KEYBOARD
+from bot.keyboards import MAIN_MENU_KEYBOARD, BACK_TO_MENU_KEYBOARD, region_picker_keyboard
 from bot.messages import (
     HELP_TEXT,
+    REGION_CURRENT,
     _main_menu_text,
     GENERIC_ERROR,
 )
 from db import crud
+from region_map import get_currency_code
 from services import tf2_market
 
 
@@ -86,7 +88,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "price": None,  # handled above
         "tf2": None,    # handled below
         "wishlist": "📋 <b>My Wishlist</b>\n\n(Full implementation coming in step 10.)",
-        "region": "⚙️ <b>Region Settings</b>\n\n(Full implementation coming in step 9.)",
+        "region": None,  # handled below
     }
 
     # "price" action — set awaiting state so the next message is treated as a search.
@@ -95,6 +97,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await query.edit_message_text(
             "🔍 <b>Game Price Search</b>\n\nSend me a game name to search.\nExample: <code>elden ring</code>",
             parse_mode="HTML",
+            reply_markup=BACK_TO_MENU_KEYBOARD,
         )
         return
 
@@ -107,6 +110,20 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         text = await _build_tf2_text(db_user["currency_code"])
         await query.edit_message_text(
             text, parse_mode="HTML", reply_markup=TF2_KEYBOARD
+        )
+        return
+
+    # "region" action — show current region + picker keyboard.
+    if action == "region":
+        from bot.handlers.settings import _CURRENCY_NAMES
+
+        db_user = await crud.get_or_create_user(user.id)
+        cc = db_user["region_cc"]
+        cur_code = db_user["currency_code"]
+        currency_name = _CURRENCY_NAMES.get(cur_code, str(cur_code))
+        text = REGION_CURRENT.format(cc=cc, currency_name=currency_name)
+        await query.edit_message_text(
+            text, parse_mode="HTML", reply_markup=region_picker_keyboard()
         )
         return
 

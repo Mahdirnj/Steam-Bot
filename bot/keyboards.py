@@ -67,6 +67,9 @@ def result_card_keyboard(
                 InlineKeyboardButton("📦 Show DLCs", callback_data=f"dlc:{appid}"),
                 InlineKeyboardButton("🔗 Steam Page", url=steam_url),
             ],
+            [
+                InlineKeyboardButton("⬅️ Home", callback_data="menu:main"),
+            ],
         ]
     )
 

@@ -252,15 +252,28 @@ async def price_add_wishlist_callback(update: Update, context: ContextTypes.DEFA
 
 
 async def price_compare_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle compare:<appid> — fetch price in multiple regions and show a table."""
+    """Handle compare:<appid> — fetch price in multiple regions and show a table.
+
+    Edits the message to show a "Fetching…" indicator first, then replaces
+    it with the comparison results once all API calls complete.
+    """
     query = update.callback_query
     if query is None or query.data is None:
         return
-    await query.answer("Fetching prices across regions…")
 
     appid = _extract_appid("compare:", query.data)
     if appid is None:
         return
+
+    # Show a loading indicator immediately — no buttons while fetching.
+    await query.answer()
+    try:
+        await query.edit_message_text(
+            "🌍 Fetching prices across regions…",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass  # message may already be identical
 
     lines: list[str] = ["🌍 <b>Region Price Comparison</b>\n"]
     for cc, label in _COMPARE_REGIONS:
@@ -289,7 +302,7 @@ async def price_compare_callback(update: Update, context: ContextTypes.DEFAULT_T
         await asyncio.sleep(0.3)
 
     lines.append("")
-    lines.append("ℹ️ Prices are in each region's local currency.")
+    lines.append("\u2139\ufe0f Prices are in each region's local currency.")
 
     back_kb = _back_to_game_keyboard(appid)
     try:
@@ -304,15 +317,28 @@ async def price_compare_callback(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def price_dlc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle dlc:<appid> — fetch and display the game's DLC list."""
+    """Handle dlc:<appid> — fetch and display the game's DLC list.
+
+    Edits the message to show a "Fetching…" indicator first, then replaces
+    it with the DLC list once all API calls complete.
+    """
     query = update.callback_query
     if query is None or query.data is None:
         return
-    await query.answer("Fetching DLC info…")
 
     appid = _extract_appid("dlc:", query.data)
     if appid is None:
         return
+
+    # Show a loading indicator immediately — no buttons while fetching.
+    await query.answer()
+    try:
+        await query.edit_message_text(
+            "📦 Fetching DLC info…",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
 
     user = update.effective_user
     if user is None:

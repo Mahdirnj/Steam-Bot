@@ -1,0 +1,20 @@
+# Steam Deal Telegram Bot — pinned dependencies (PROJECT.md §3)
+# Python 3.11+ required.
+
+# Bot framework: async handlers, inline keyboards, built-in JobQueue scheduler.
+python-telegram-bot[job-queue]==21.*
+
+# Async HTTP client for all external Steam API calls.
+httpx==0.27.*
+
+# Async SQLite driver — raw SQL, no ORM (PROJECT.md §2 explicitly forbids SQLAlchemy).
+aiosqlite==0.20.*
+
+# Config loading from .env.
+pydantic-settings==2.*
+
+# In-memory TTL cache for TF2 market prices (15 min TTL).
+cachetools==5.*
+
+# Structured logging to console + rotating files.
+loguru==0.*

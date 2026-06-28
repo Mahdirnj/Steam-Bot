@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     bot_token: str
     db_path: str = "./bot.db"
+    log_level: str = "INFO"
 
 
 # Module-level singleton consumed by the rest of the app.

@@ -17,6 +17,8 @@ from bot.messages import (
     _main_menu_text,
     GENERIC_ERROR,
 )
+from db import crud
+from services import tf2_market
 
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -81,8 +83,8 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # Stub actions — will be replaced by real handlers in later steps.
     stub_messages = {
-        "price": None,  # handled below
-        "tf2": "🔑 <b>TF2 Key / Ticket Prices</b>\n\n(Full implementation coming in step 8.)",
+        "price": None,  # handled above
+        "tf2": None,    # handled below
         "wishlist": "📋 <b>My Wishlist</b>\n\n(Full implementation coming in step 10.)",
         "region": "⚙️ <b>Region Settings</b>\n\n(Full implementation coming in step 9.)",
     }
@@ -93,6 +95,18 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await query.edit_message_text(
             "🔍 <b>Game Price Search</b>\n\nSend me a game name to search.\nExample: <code>elden ring</code>",
             parse_mode="HTML",
+        )
+        return
+
+    # "tf2" action — fetch and display live TF2 prices directly.
+    if action == "tf2":
+        from bot.keyboards import TF2_KEYBOARD
+        from bot.handlers.tf2 import _build_tf2_text
+
+        db_user = await crud.get_or_create_user(user.id)
+        text = await _build_tf2_text(db_user["currency_code"])
+        await query.edit_message_text(
+            text, parse_mode="HTML", reply_markup=TF2_KEYBOARD
         )
         return
 

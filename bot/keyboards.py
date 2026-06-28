@@ -117,6 +117,18 @@ def wishlist_remove_keyboard(items: list[dict]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
+# ── TF2 price card (/tf2) ────────────────────────────────────────────────────
+
+TF2_KEYBOARD = InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton("🔄 Refresh", callback_data="refresh:tf2"),
+            InlineKeyboardButton("⬅️ Home", callback_data="menu:main"),
+        ],
+    ]
+)
+
+
 # ── Back-to-menu button ──────────────────────────────────────────────────────
 
 BACK_TO_MENU_KEYBOARD = InlineKeyboardMarkup(

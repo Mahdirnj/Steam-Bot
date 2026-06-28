@@ -95,6 +95,11 @@ from bot.handlers.price import (  # noqa: E402
     price_handler,
     price_select_callback,
 )
+from bot.handlers.tf2 import (  # noqa: E402
+    convert_handler,
+    tf2_handler,
+    tf2_refresh_callback,
+)
 
 
 # ── Text input dispatcher ────────────────────────────────────────────────────
@@ -171,6 +176,14 @@ def main() -> None:
     # Show DLCs (dlc:123456).
     app.add_handler(
         CallbackQueryHandler(price_dlc_callback, pattern=r"^dlc:\d+$")
+    )
+
+    # --- Step 8: /tf2 and /convert handlers ---
+    app.add_handler(CommandHandler("tf2", tf2_handler))
+    app.add_handler(CommandHandler("convert", convert_handler))
+    # TF2 refresh button (refresh:tf2).
+    app.add_handler(
+        CallbackQueryHandler(tf2_refresh_callback, pattern=r"^refresh:tf2$")
     )
 
     # --- Text input dispatcher (must be LAST — lowest priority) ---

@@ -79,13 +79,47 @@ async def on_shutdown(app) -> None:
     logger.info("Shutdown complete. Goodbye.")
 
 
-# ── Handler imports (stubs for unimplemented steps) ──────────────────────────
+# ── Handler imports ───────────────────────────────────────────────────────────
 
 from bot.handlers.start import (  # noqa: E402
     help_handler,
     menu_callback,
     start_handler,
 )
+from bot.handlers.price import (  # noqa: E402
+    handle_price_input,
+    price_add_wishlist_callback,
+    price_back_callback,
+    price_compare_callback,
+    price_dlc_callback,
+    price_handler,
+    price_select_callback,
+)
+
+
+# ── Text input dispatcher ────────────────────────────────────────────────────
+
+from telegram import Update  # noqa: E402
+from telegram.ext import MessageHandler, filters  # noqa: E402
+
+
+async def text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Dispatch plain text messages to the correct handler based on user state.
+
+    This handler is registered last (lowest priority) so commands and callbacks
+    are always processed first. Only messages that don't match any command or
+    callback pattern reach here.
+    """
+    # Try each module's input handler in order.  The first one that recognizes
+    # the current awaiting state consumes the message.
+    if await handle_price_input(update, context):
+        return
+
+    # Future awaiting states go here:
+    # if await handle_region_input(update, context):
+    #     return
+    # if await handle_wishlist_input(update, context):
+    #     return
 
 
 # ── Build and run ────────────────────────────────────────────────────────────
@@ -115,12 +149,34 @@ def main() -> None:
         CallbackQueryHandler(menu_callback, pattern=r"^menu:")
     )
 
-    # Placeholder handlers for steps 7–10 will be registered here.
-    # app.add_handler(CommandHandler("price", price_handler))
-    # app.add_handler(CommandHandler("tf2", tf2_handler))
-    # app.add_handler(CommandHandler("convert", convert_handler))
-    # app.add_handler(CommandHandler("wishlist", wishlist_handler))
-    # app.add_handler(CommandHandler("region", region_handler))
+    # --- Step 7: /price flow handlers ---
+    app.add_handler(CommandHandler("price", price_handler))
+
+    # Game selection from search results (price:appid:123456).
+    app.add_handler(
+        CallbackQueryHandler(price_select_callback, pattern=r"^price:appid:\d+$")
+    )
+    # Back to game result card (back:123456).
+    app.add_handler(
+        CallbackQueryHandler(price_back_callback, pattern=r"^back:\d+$")
+    )
+    # Add to wishlist from result card (wish:add:123456).
+    app.add_handler(
+        CallbackQueryHandler(price_add_wishlist_callback, pattern=r"^wish:add:\d+$")
+    )
+    # Compare regions (compare:123456).
+    app.add_handler(
+        CallbackQueryHandler(price_compare_callback, pattern=r"^compare:\d+$")
+    )
+    # Show DLCs (dlc:123456).
+    app.add_handler(
+        CallbackQueryHandler(price_dlc_callback, pattern=r"^dlc:\d+$")
+    )
+
+    # --- Text input dispatcher (must be LAST — lowest priority) ---
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, text_input_handler)
+    )
 
     # --- Start polling (manual async lifecycle for Python 3.14+) ---
     logger.info("Handlers registered. Starting long-polling...")

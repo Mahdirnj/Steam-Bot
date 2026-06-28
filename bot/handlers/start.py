@@ -81,11 +81,20 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # Stub actions — will be replaced by real handlers in later steps.
     stub_messages = {
-        "price": "🔍 <b>Game Price Search</b>\n\nSend me a game name to search.\nExample: <code>elden ring</code>\n\n(Full implementation coming in step 7.)",
+        "price": None,  # handled below
         "tf2": "🔑 <b>TF2 Key / Ticket Prices</b>\n\n(Full implementation coming in step 8.)",
         "wishlist": "📋 <b>My Wishlist</b>\n\n(Full implementation coming in step 10.)",
         "region": "⚙️ <b>Region Settings</b>\n\n(Full implementation coming in step 9.)",
     }
+
+    # "price" action — set awaiting state so the next message is treated as a search.
+    if action == "price":
+        context.user_data["awaiting"] = "price_search"
+        await query.edit_message_text(
+            "🔍 <b>Game Price Search</b>\n\nSend me a game name to search.\nExample: <code>elden ring</code>",
+            parse_mode="HTML",
+        )
+        return
 
     msg = stub_messages.get(action)
     if msg:

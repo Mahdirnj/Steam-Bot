@@ -237,15 +237,28 @@ async def price_add_wishlist_callback(update: Update, context: ContextTypes.DEFA
     added = await crud.add_wishlist_item(user.id, appid, game_name)
     if added:
         logger.info("Wishlist add: user={} appid={} name={!r}", user.id, appid, game_name)
-        await query.answer(
-            WISHLIST_ADDED.format(name=game_name),
-            show_alert=True,
-        )
+        await query.answer()
+        try:
+            await query.edit_message_text(
+                "\u2705 <b>{}</b> has been added to your wishlist!\n\n"
+                "You\u2019ll be notified when the price changes.\n\n"
+                "\U0001f4cb Use /wishlist to see all your tracked games.".format(game_name),
+                parse_mode="HTML",
+                reply_markup=_back_to_game_keyboard(appid),
+            )
+        except Exception as exc:
+            logger.warning("price_add_wishlist edit_message failed: {!r}", exc)
     else:
-        await query.answer(
-            WISHLIST_ALREADY_EXISTS.format(name=game_name),
-            show_alert=True,
-        )
+        await query.answer()
+        try:
+            await query.edit_message_text(
+                "\u2139\ufe0f <b>{}</b> is already in your wishlist.\n\n"
+                "\U0001f4cb Use /wishlist to see all your tracked games.".format(game_name),
+                parse_mode="HTML",
+                reply_markup=_back_to_game_keyboard(appid),
+            )
+        except Exception as exc:
+            logger.warning("price_add_wishlist edit_message failed: {!r}", exc)
 
 
 # ─── "Compare Regions" button ────────────────────────────────────────────────

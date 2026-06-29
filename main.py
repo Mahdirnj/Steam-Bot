@@ -106,6 +106,12 @@ from bot.handlers.settings import (  # noqa: E402
     region_manual_callback,
     region_select_callback,
 )
+from bot.handlers.wishlist import (  # noqa: E402
+    handle_wishlist_add_input,
+    wishlist_direct_add_callback,
+    wishlist_handler,
+    wishlist_remove_callback,
+)
 
 
 # ── Text input dispatcher ────────────────────────────────────────────────────
@@ -126,12 +132,11 @@ async def text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if await handle_price_input(update, context):
         return
 
-    if await handle_region_input(update, context):
+    if await handle_wishlist_add_input(update, context):
         return
 
-    # Future awaiting states go here:
-    # if await handle_wishlist_input(update, context):
-    #     return
+    if await handle_region_input(update, context):
+        return
 
 
 # ── Build and run ────────────────────────────────────────────────────────────
@@ -202,6 +207,17 @@ def main() -> None:
     # More regions list (region:all).
     app.add_handler(
         CallbackQueryHandler(region_manual_callback, pattern=r"^region:all$")
+    )
+
+    # --- Step 10: /wishlist handler ---
+    app.add_handler(CommandHandler("wishlist", wishlist_handler))
+    # Direct add from search results (wish:direct:123456:Game Name).
+    app.add_handler(
+        CallbackQueryHandler(wishlist_direct_add_callback, pattern=r"^wish:direct:\d+:")
+    )
+    # Remove from wishlist picker (wish:remove:123456).
+    app.add_handler(
+        CallbackQueryHandler(wishlist_remove_callback, pattern=r"^wish:remove:\d+$")
     )
 
     # --- Text input dispatcher (must be LAST — lowest priority) ---

@@ -87,7 +87,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     stub_messages = {
         "price": None,  # handled above
         "tf2": None,    # handled below
-        "wishlist": "📋 <b>My Wishlist</b>\n\n(Full implementation coming in step 10.)",
+        "wishlist": None,  # handled below
         "region": None,  # handled below
     }
 
@@ -125,6 +125,78 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await query.edit_message_text(
             text, parse_mode="HTML", reply_markup=region_picker_keyboard()
         )
+        return
+
+    # "wishlist" action — show the user's wishlist with prices.
+    if action == "wishlist":
+        from bot.handlers.wishlist import wishlist_menu_callback
+
+        await wishlist_menu_callback(update, context)
+        return
+
+    # "wishlist_add" action — from wishlist actions keyboard.
+    if action == "wishlist_add":
+        context.user_data["awaiting"] = "wishlist_add"
+        await query.edit_message_text(
+            "🔍 <b>Add to Wishlist</b>\n\nSend me a game name to search.\nExample: <code>elden ring</code>",
+            parse_mode="HTML",
+            reply_markup=BACK_TO_MENU_KEYBOARD,
+        )
+        return
+
+    # "wishlist_remove" action — from wishlist actions keyboard.
+    if action == "wishlist_remove":
+        from bot.handlers.wishlist import wishlist_remove_picker
+        # We need to call the picker, but we're in a callback context.
+        # Create a pseudo-message update for the picker.
+        items = await crud.list_wishlist_for_user(user.id)
+        if not items:
+            from bot.messages import WISHLIST_EMPTY
+            await query.edit_message_text(
+                WISHLIST_EMPTY,
+                parse_mode="HTML",
+                reply_markup=BACK_TO_MENU_KEYBOARD,
+            )
+        else:
+            from bot.keyboards import wishlist_remove_keyboard
+            await query.edit_message_text(
+                "🗑️ Tap a game to remove it from your wishlist:",
+                parse_mode="HTML",
+                reply_markup=wishlist_remove_keyboard(items),
+            )
+        return
+
+    # "wishlist_summary" action — from wishlist actions keyboard.
+    if action == "wishlist_summary":
+        from bot.handlers.wishlist import _wishlist_list, _build_wishlist_text
+
+        await query.answer()
+        try:
+            await query.edit_message_text(
+                "📋 Loading sale summary\u2026",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+        items = await crud.list_wishlist_for_user(user.id)
+        if not items:
+            from bot.messages import WISHLIST_EMPTY
+            await query.edit_message_text(
+                WISHLIST_EMPTY,
+                parse_mode="HTML",
+                reply_markup=BACK_TO_MENU_KEYBOARD,
+            )
+        else:
+            db_user = await crud.get_or_create_user(user.id)
+            text = await _build_wishlist_text(items, db_user["region_cc"], summary_only=True)
+            from bot.handlers.wishlist import _wishlist_actions_keyboard
+            try:
+                await query.edit_message_text(
+                    text, parse_mode="HTML", reply_markup=_wishlist_actions_keyboard()
+                )
+            except Exception:
+                pass
         return
 
     msg = stub_messages.get(action)

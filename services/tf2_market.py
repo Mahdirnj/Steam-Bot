@@ -40,7 +40,7 @@ TICKET_ITEM_NAME: str = "Tour of Duty Ticket"
 # 15-minute TTL (900 s). maxsize=50 covers 17 currencies × 2 items = 34.
 # ---------------------------------------------------------------------------
 
-_cache: TTLCache[Tuple[str, int], float] = TTLCache(maxsize=50, ttl=900)
+_cache: TTLCache[Tuple[str, int], float] = TTLCache(maxsize=50, ttl=300)
 
 # ---------------------------------------------------------------------------
 # Price-string parser

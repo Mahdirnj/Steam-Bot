@@ -21,10 +21,14 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 MAIN_MENU_KEYBOARD = InlineKeyboardMarkup(
     [
-        [InlineKeyboardButton("🔍 Search Game Price", callback_data="menu:price")],
-        [InlineKeyboardButton("🔑 TF2 Key / Ticket Price", callback_data="menu:tf2")],
-        [InlineKeyboardButton("📋 My Wishlist", callback_data="menu:wishlist")],
-        [InlineKeyboardButton("⚙️ Settings (Region)", callback_data="menu:region")],
+        [
+            InlineKeyboardButton("🔍 Search Game Price", callback_data="menu:price"),
+            InlineKeyboardButton("🔑 TF2 Key / Ticket", callback_data="menu:tf2"),
+        ],
+        [
+            InlineKeyboardButton("📋 My Wishlist", callback_data="menu:wishlist"),
+            InlineKeyboardButton("⚙️ Settings", callback_data="menu:region"),
+        ],
     ]
 )
 

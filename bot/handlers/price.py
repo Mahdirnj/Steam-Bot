@@ -146,7 +146,11 @@ async def _do_search(
 
 
 async def price_select_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle price:appid:<id> callback — fetch details and render result card."""
+    """Handle price:appid:<id> callback — fetch details and render result card.
+
+    Deletes the search-results text message and sends a new photo message
+    with the game's header art as the image and the price card as the caption.
+    """
     query = update.callback_query
     if query is None or query.data is None:
         return
@@ -174,18 +178,43 @@ async def price_select_callback(update: Update, context: ContextTypes.DEFAULT_TY
         context.user_data["last_price_appid"] = appid
         context.user_data["last_price_name"] = game_name
 
-    text, kb = await _build_result_card(data, cc, db_user["currency_code"])
+    text, kb, header_image = await _build_result_card(data, cc, db_user["currency_code"])
+
     try:
-        await query.edit_message_text(text, parse_mode="HTML", reply_markup=kb)
+        # Delete the search-results text message.
+        await query.message.delete()  # type: ignore[union-attr]
     except Exception as exc:
-        logger.warning("price_select edit_message failed: {!r}", exc)
+        logger.debug("price_select delete old message: {!r}", exc)
+
+    try:
+        # Send a photo message with the game cover art + price card caption.
+        await context.bot.send_photo(
+            chat_id=user.id,
+            photo=header_image,
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+    except Exception as exc:
+        logger.warning("price_select send_photo failed: {!r}", exc)
+        # Fallback: send as text if photo fails.
+        await context.bot.send_message(
+            chat_id=user.id,
+            text=text,
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
 
 
 # ─── "Back to Game" button ───────────────────────────────────────────────────
 
 
 async def price_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle back:<appid> callback — re-fetch and re-render the result card."""
+    """Handle back:<appid> callback — re-fetch and re-render the result card.
+
+    Since the result card is now a photo message, we edit the caption instead
+    of the message text.
+    """
     query = update.callback_query
     if query is None or query.data is None:
         return
@@ -204,14 +233,24 @@ async def price_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     data = await steam.appdetails(appid, cc)
     if data is None:
-        await query.edit_message_text(PRICE_ERROR, parse_mode="HTML")
+        try:
+            await query.edit_message_caption(
+                caption=PRICE_ERROR,
+                parse_mode="HTML",
+            )
+        except Exception:
+            await query.edit_message_text(PRICE_ERROR, parse_mode="HTML")
         return
 
-    text, kb = await _build_result_card(data, cc, db_user["currency_code"])
+    text, kb, _ = await _build_result_card(data, cc, db_user["currency_code"])
     try:
-        await query.edit_message_text(text, parse_mode="HTML", reply_markup=kb)
+        await query.edit_message_caption(
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
     except Exception as exc:
-        logger.warning("price_back edit_message failed: {!r}", exc)
+        logger.warning("price_back edit_message_caption failed: {!r}", exc)
 
 
 # ─── "Add to Wishlist" button ────────────────────────────────────────────────
@@ -239,26 +278,26 @@ async def price_add_wishlist_callback(update: Update, context: ContextTypes.DEFA
         logger.info("Wishlist add: user={} appid={} name={!r}", user.id, appid, game_name)
         await query.answer()
         try:
-            await query.edit_message_text(
-                "\u2705 <b>{}</b> has been added to your wishlist!\n\n"
+            await query.edit_message_caption(
+                caption="\u2705 <b>{}</b> has been added to your wishlist!\n\n"
                 "You\u2019ll be notified when the price changes.\n\n"
                 "\U0001f4cb Use /wishlist to see all your tracked games.".format(game_name),
                 parse_mode="HTML",
                 reply_markup=_back_to_game_keyboard(appid),
             )
         except Exception as exc:
-            logger.warning("price_add_wishlist edit_message failed: {!r}", exc)
+            logger.warning("price_add_wishlist edit_message_caption failed: {!r}", exc)
     else:
         await query.answer()
         try:
-            await query.edit_message_text(
-                "\u2139\ufe0f <b>{}</b> is already in your wishlist.\n\n"
+            await query.edit_message_caption(
+                caption="\u2139\ufe0f <b>{}</b> is already in your wishlist.\n\n"
                 "\U0001f4cb Use /wishlist to see all your tracked games.".format(game_name),
                 parse_mode="HTML",
                 reply_markup=_back_to_game_keyboard(appid),
             )
         except Exception as exc:
-            logger.warning("price_add_wishlist edit_message failed: {!r}", exc)
+            logger.warning("price_add_wishlist edit_message_caption failed: {!r}", exc)
 
 
 # ─── "Compare Regions" button ────────────────────────────────────────────────
@@ -281,8 +320,8 @@ async def price_compare_callback(update: Update, context: ContextTypes.DEFAULT_T
     # Show a loading indicator immediately — no buttons while fetching.
     await query.answer()
     try:
-        await query.edit_message_text(
-            "🌍 Fetching prices across regions…",
+        await query.edit_message_caption(
+            caption="🌍 Fetching prices across regions...",
             parse_mode="HTML",
         )
     except Exception:
@@ -319,11 +358,11 @@ async def price_compare_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     back_kb = _back_to_game_keyboard(appid)
     try:
-        await query.edit_message_text(
-            "\n".join(lines), parse_mode="HTML", reply_markup=back_kb
+        await query.edit_message_caption(
+            caption="\n".join(lines), parse_mode="HTML", reply_markup=back_kb
         )
     except Exception as exc:
-        logger.warning("price_compare edit_message failed: {!r}", exc)
+        logger.warning("price_compare edit_message_caption failed: {!r}", exc)
 
 
 # ─── "Show DLCs" button ─────────────────────────────────────────────────────
@@ -346,8 +385,8 @@ async def price_dlc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Show a loading indicator immediately — no buttons while fetching.
     await query.answer()
     try:
-        await query.edit_message_text(
-            "📦 Fetching DLC info…",
+        await query.edit_message_caption(
+            caption="📦 Fetching DLC info...",
             parse_mode="HTML",
         )
     except Exception:
@@ -363,17 +402,23 @@ async def price_dlc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # We need the parent game's data to get the DLC list.
     parent = await steam.appdetails(appid, cc)
     if parent is None:
-        await query.edit_message_text(PRICE_ERROR, parse_mode="HTML")
+        try:
+            await query.edit_message_caption(caption=PRICE_ERROR, parse_mode="HTML")
+        except Exception:
+            pass
         return
 
     dlc_ids: list[int] = parent.get("dlc", [])
     if not dlc_ids:
         back_kb = _back_to_game_keyboard(appid)
-        await query.edit_message_text(
-            "📦 <b>No DLCs found</b> for this game.",
-            parse_mode="HTML",
-            reply_markup=back_kb,
-        )
+        try:
+            await query.edit_message_caption(
+                caption="📦 <b>No DLCs found</b> for this game.",
+                parse_mode="HTML",
+                reply_markup=back_kb,
+            )
+        except Exception:
+            pass
         return
 
     dlc_ids = dlc_ids[:_MAX_DLCS]
@@ -406,11 +451,11 @@ async def price_dlc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     back_kb = _back_to_game_keyboard(appid)
     try:
-        await query.edit_message_text(
-            "\n".join(lines), parse_mode="HTML", reply_markup=back_kb
+        await query.edit_message_caption(
+            caption="\n".join(lines), parse_mode="HTML", reply_markup=back_kb
         )
     except Exception as exc:
-        logger.warning("price_dlc edit_message failed: {!r}", exc)
+        logger.warning("price_dlc edit_message_caption failed: {!r}", exc)
 
 
 # ─── Result card builder ─────────────────────────────────────────────────────
@@ -418,10 +463,11 @@ async def price_dlc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def _build_result_card(
     data: dict, cc: str, currency_code: int
-) -> tuple[str, InlineKeyboardMarkup]:
-    """Render the result card text and keyboard from appdetails data.
+) -> tuple[str, InlineKeyboardMarkup, str]:
+    """Render the result card text, keyboard, and header image URL from appdetails data.
 
-    Returns (text, keyboard) so the caller can use reply_text or edit_message_text.
+    Returns (text, keyboard, header_image_url) so the caller can send a photo
+    message with the game cover art.
     """
     name = data.get("name", "Unknown")
     appid = data.get("steam_appid", 0)
@@ -493,7 +539,11 @@ async def _build_result_card(
 
     steam_url = f"https://store.steampowered.com/app/{appid}"
     kb = result_card_keyboard(appid, steam_url)
-    return text, kb
+
+    # Grab the header image URL from appdetails (game cover art).
+    header_image = data.get("header_image", "")
+
+    return text, kb, header_image
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────

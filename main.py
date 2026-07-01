@@ -112,6 +112,7 @@ from bot.handlers.wishlist import (  # noqa: E402
     wishlist_handler,
     wishlist_remove_callback,
 )
+from scheduler.jobs import check_all_wishlists  # noqa: E402
 
 
 # ── Text input dispatcher ────────────────────────────────────────────────────
@@ -235,6 +236,21 @@ def main() -> None:
         if app.updater is None:
             raise RuntimeError("Updater not available — check ApplicationBuilder config")
         await app.updater.start_polling(drop_pending_updates=True)
+
+        # --- Step 11: Register the wishlist price-check scheduler ---
+        # Runs every 6 hours (21600s). First run after 60s so the bot
+        # has time to settle and take initial snapshots.
+        if app.job_queue is not None:
+            app.job_queue.run_repeating(
+                check_all_wishlists,
+                interval=21600,   # 6 hours in seconds
+                first=60,         # first run 60s after startup
+            )
+            logger.info("Wishlist scheduler registered (every 6h, first in 60s).")
+        else:
+            logger.warning("JobQueue not available — scheduler not registered. "
+                           "Install python-telegram-bot[job-queue].")
+
         logger.info("Bot is running. Press Ctrl-C to stop.")
 
         try:

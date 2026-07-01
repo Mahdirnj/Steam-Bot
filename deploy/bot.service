@@ -1,0 +1,36 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Steam Deal Telegram Bot — systemd service unit (for non-Docker VPS deploy)
+# Install:
+#   sudo cp deploy/bot.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable bot
+#   sudo systemctl start bot
+# Logs:
+#   sudo journalctl -u bot -f
+# ──────────────────────────────────────────────────────────────────────────────
+
+[Unit]
+Description=Steam Deal Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bot
+Group=bot
+WorkingDirectory=/opt/steam-deal-bot
+EnvironmentFile=/opt/steam-deal-bot/.env
+ExecStart=/opt/steam-deal-bot/venv/bin/python -u main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/steam-deal-bot/data /opt/steam-deal-bot/logs
+
+[Install]
+WantedBy=multi-user.target

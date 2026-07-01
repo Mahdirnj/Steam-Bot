@@ -76,11 +76,25 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     if action == "main":
         text = _main_menu_text(user.first_name)
-        await query.edit_message_text(
-            text,
-            parse_mode="HTML",
-            reply_markup=MAIN_MENU_KEYBOARD,
-        )
+        try:
+            await query.edit_message_text(
+                text,
+                parse_mode="HTML",
+                reply_markup=MAIN_MENU_KEYBOARD,
+            )
+        except Exception:
+            # The message might be a photo message (from /price result card).
+            # Delete it and send a new text message instead.
+            try:
+                await query.message.delete()  # type: ignore[union-attr]
+            except Exception:
+                pass
+            await context.bot.send_message(
+                chat_id=user.id,
+                text=text,
+                parse_mode="HTML",
+                reply_markup=MAIN_MENU_KEYBOARD,
+            )
         return
 
     # Stub actions — will be replaced by real handlers in later steps.

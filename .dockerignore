@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Secrets
+.env
+
+# Persistent data (mounted as Docker volumes)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Documentation / non-essential
+PROJECT.md
+scripts/
+.fallow/

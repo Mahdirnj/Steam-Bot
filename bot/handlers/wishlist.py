@@ -23,12 +23,8 @@ from bot.keyboards import (
     wishlist_remove_keyboard,
 )
 from bot.messages import (
-    GENERIC_ERROR,
     WISHLIST_ADD_ASK,
-    WISHLIST_ADDED,
-    WISHLIST_ALREADY_EXISTS,
     WISHLIST_EMPTY,
-    WISHLIST_ERROR,
     WISHLIST_HEADER,
     WISHLIST_ITEM,
     WISHLIST_ITEM_SALE,
@@ -161,8 +157,6 @@ async def _wishlist_add_search(
         return
 
     # Build keyboard — callbacks use "wish:direct:<appid>" for direct add.
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
     rows = [
         [InlineKeyboardButton(r["name"], callback_data=f"wish:direct:{r['appid']}:{r['name']}")]
         for r in results
@@ -466,8 +460,6 @@ async def _build_wishlist_text(
 
 def _wishlist_actions_keyboard():
     """Keyboard with Add / Remove / Summary / Home buttons."""
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
     return InlineKeyboardMarkup(
         [
             [

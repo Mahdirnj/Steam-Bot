@@ -19,12 +19,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from bot.keyboards import (
-    BACK_TO_MENU_KEYBOARD,
     result_card_keyboard,
     search_results_keyboard,
 )
 from bot.messages import (
-    GENERIC_ERROR,
     PRICE_ASK_NAME,
     PRICE_ERROR,
     PRICE_NO_RESULTS,
@@ -34,8 +32,6 @@ from bot.messages import (
     PRICE_RESULT_KEYS,
     PRICE_RESULT_NOT_PURCHASABLE,
     PRICE_RESULT_PRICE,
-    WISHLIST_ADDED,
-    WISHLIST_ALREADY_EXISTS,
 )
 from db import crud
 from services import steam, tf2_market

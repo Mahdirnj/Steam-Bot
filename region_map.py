@@ -14,8 +14,6 @@ pricing for IR.
 
 Source table: PROJECT.md §4 "currency code table (priceoverview currency param)".
 """
-from typing import Dict
-
 # Default region + currency. These match db/schema.sql's column defaults, so
 # new users get sensible values even before they pick a region.
 DEFAULT_CC: str = "US"
@@ -23,7 +21,7 @@ DEFAULT_CURRENCY_CODE: int = 1  # USD
 
 # ISO country code -> priceoverview numeric currency code.
 # The five "picker" regions from PROJECT.md §8 (/region grid) are marked.
-CC_TO_CURRENCY: Dict[str, int] = {
+CC_TO_CURRENCY: dict[str, int] = {
     "US": 1,   # USD  (picker region)
     "TR": 17,  # TRY  (picker region)
     "UA": 18,  # UAH  (picker region)

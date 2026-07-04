@@ -19,8 +19,6 @@ from bot.messages import (
     GENERIC_ERROR,
 )
 from db import crud
-from region_map import get_currency_code
-from services import tf2_market
 
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -97,17 +95,10 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             )
         return
 
-    # Stub actions — will be replaced by real handlers in later steps.
-    stub_messages = {
-        "price": None,  # handled above
-        "tf2": None,    # handled below
-        "wishlist": None,  # handled below
-        "region": None,  # handled below
-    }
-
     # "price" action — set awaiting state so the next message is treated as a search.
     if action == "price":
-        context.user_data["awaiting"] = "price_search"
+        if context.user_data is not None:
+            context.user_data["awaiting"] = "price_search"
         await query.edit_message_text(
             "🔍 <b>Game Price Search</b>\n\nSend me a game name to search.\nExample: <code>elden ring</code>",
             parse_mode="HTML",
@@ -150,7 +141,8 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # "wishlist_add" action — from wishlist actions keyboard.
     if action == "wishlist_add":
-        context.user_data["awaiting"] = "wishlist_add"
+        if context.user_data is not None:
+            context.user_data["awaiting"] = "wishlist_add"
         await query.edit_message_text(
             "🔍 <b>Add to Wishlist</b>\n\nSend me a game name to search.\nExample: <code>elden ring</code>",
             parse_mode="HTML",
@@ -160,7 +152,6 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # "wishlist_remove" action — from wishlist actions keyboard.
     if action == "wishlist_remove":
-        from bot.handlers.wishlist import wishlist_remove_picker
         # We need to call the picker, but we're in a callback context.
         # Create a pseudo-message update for the picker.
         items = await crud.list_wishlist_for_user(user.id)
@@ -182,7 +173,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # "wishlist_summary" action — from wishlist actions keyboard.
     if action == "wishlist_summary":
-        from bot.handlers.wishlist import _wishlist_list, _build_wishlist_text
+        from bot.handlers.wishlist import _build_wishlist_text
 
         await query.answer()
         try:
@@ -213,17 +204,9 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 pass
         return
 
-    msg = stub_messages.get(action)
-    if msg:
-        await query.edit_message_text(
-            msg,
-            parse_mode="HTML",
-            reply_markup=BACK_TO_MENU_KEYBOARD,
-        )
-    else:
-        logger.warning("Unknown menu action: {!r}", action)
-        await query.edit_message_text(
-            GENERIC_ERROR,
-            parse_mode="HTML",
-            reply_markup=BACK_TO_MENU_KEYBOARD,
-        )
+    logger.warning("Unknown menu action: {!r}", action)
+    await query.edit_message_text(
+        GENERIC_ERROR,
+        parse_mode="HTML",
+        reply_markup=BACK_TO_MENU_KEYBOARD,
+    )

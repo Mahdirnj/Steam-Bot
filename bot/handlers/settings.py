@@ -21,10 +21,9 @@ from bot.messages import (
     REGION_CHANGED,
     REGION_CURRENT,
     REGION_INVALID,
-    REGION_PROMPT_MANUAL,
 )
 from db import crud
-from region_map import CC_TO_CURRENCY, get_currency_code
+from region_map import get_currency_code
 
 # Friendly currency names for display (subset — covers all picker regions + extras).
 _CURRENCY_NAMES: dict[int, str] = {

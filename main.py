@@ -23,6 +23,7 @@ from telegram.ext import (
 
 from config import settings
 from db.database import close_db, init_db
+from health import start_web_server, stop_web_server
 from services.steam import close_client, init_client
 
 # ── Logging setup ────────────────────────────────────────────────────────────
@@ -59,21 +60,24 @@ logger.add(
 async def on_startup(app) -> None:
     """Called once after the Application is initialized, before polling starts.
 
-    Opens the SQLite database and the shared httpx client so every handler
-    can use db.get_db() and steam.get_client() immediately.
+    Opens the SQLite database, the shared httpx client, and the health server
+    so every handler can use db.get_db() and steam.get_client() immediately.
     """
-    logger.info("Starting up — initializing DB and HTTP client...")
+    logger.info("Starting up — initializing DB, HTTP client, and health server...")
     await init_db(settings.db_path)
     await init_client()
-    logger.info("Startup complete. DB={}, httpx client ready.", settings.db_path)
+    await start_web_server(settings.web_port)
+    logger.info("Startup complete. DB={}, httpx client ready, health server on :{}.",
+                settings.db_path, settings.web_port)
 
 
 async def on_shutdown(app) -> None:
     """Called after polling stops, before the process exits.
 
-    Closes the DB connection and httpx client gracefully.
+    Closes the health server, DB connection, and httpx client gracefully.
     """
-    logger.info("Shutting down — closing DB and HTTP client...")
+    logger.info("Shutting down — closing health server, DB and HTTP client...")
+    await stop_web_server()
     await close_client()
     await close_db()
     logger.info("Shutdown complete. Goodbye.")

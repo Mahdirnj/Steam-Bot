@@ -9,12 +9,16 @@ See PROJECT.md §8 for the exact layout of each command's output.
 # ── /start & /help ───────────────────────────────────────────────────────────
 
 WELCOME_TEXT = (
-    "🎮 <b>Welcome to Steam Deal Bot!</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "🎮 <b>Steam Deal Bot</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
     "\n"
-    "I help you track Steam game prices, check TF2 key/ticket values,\n"
-    "and notify you when wishlisted games change price.\n"
+    "Hey, <b>{name}</b>! 👋\n"
     "\n"
-    "Pick an action below, or type a command:"
+    "I track Steam prices, TF2 market values,\n"
+    "and alert you when games go on sale.\n"
+    "\n"
+    "Choose an action below 👇"
 )
 
 HELP_TEXT = (
@@ -54,7 +58,7 @@ HELP_TEXT = (
 def _main_menu_text(username: str | None) -> str:
     """Welcome text personalised with the user's first name or 'there'."""
     name = username or "there"
-    return WELCOME_TEXT.replace("Welcome", f"Welcome, {name}")
+    return WELCOME_TEXT.format(name=name)
 
 
 # ── /price flow ──────────────────────────────────────────────────────────────

@@ -160,6 +160,10 @@ def main() -> None:
     app = (
         ApplicationBuilder()
         .token(settings.bot_token)
+        .read_timeout(30)
+        .write_timeout(30)
+        .connect_timeout(15)
+        .pool_timeout(15)
         .build()
     )
 

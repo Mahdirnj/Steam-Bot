@@ -166,6 +166,7 @@ def wishlist_remove_keyboard(items: list[dict]) -> InlineKeyboardMarkup:
         )]
         for item in items
     ]
+    rows.append([InlineKeyboardButton("⬅️ Back to Menu", callback_data="menu:main")])
     return InlineKeyboardMarkup(rows)
 
 

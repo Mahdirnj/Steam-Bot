@@ -18,6 +18,8 @@ from loguru import logger
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
+from bot.utils import TypingIndicator
+
 from bot.keyboards import (
     result_card_keyboard,
     search_results_keyboard,
@@ -116,26 +118,27 @@ async def _do_search(
     if user is None:
         return
 
-    # Resolve the user's saved region (default US if first interaction).
-    db_user = await crud.get_or_create_user(user.id)
-    cc = db_user["region_cc"]
+    async with TypingIndicator(context, user.id):
+        # Resolve the user's saved region (default US if first interaction).
+        db_user = await crud.get_or_create_user(user.id)
+        cc = db_user["region_cc"]
 
-    logger.info("price search term={!r} user={} cc={}", term, user.id, cc)
+        logger.info("price search term={!r} user={} cc={}", term, user.id, cc)
 
-    results = await steam.storesearch(term, cc)
-    if not results:
+        results = await steam.storesearch(term, cc)
+        if not results:
+            await update.message.reply_text(
+                PRICE_NO_RESULTS.format(term=term),
+                parse_mode="HTML",
+            )
+            return
+
+        kb = search_results_keyboard(results)
         await update.message.reply_text(
-            PRICE_NO_RESULTS.format(term=term),
+            f"🔍 Results for <b>{term}</b> — tap a game:",
             parse_mode="HTML",
+            reply_markup=kb,
         )
-        return
-
-    kb = search_results_keyboard(results)
-    await update.message.reply_text(
-        f"🔍 Results for <b>{term}</b> — tap a game:",
-        parse_mode="HTML",
-        reply_markup=kb,
-    )
 
 
 # ─── Game selected from search results ───────────────────────────────────────
@@ -160,46 +163,47 @@ async def price_select_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if user is None:
         return
 
-    db_user = await crud.get_or_create_user(user.id)
-    cc = db_user["region_cc"]
+    async with TypingIndicator(context, user.id):
+        db_user = await crud.get_or_create_user(user.id)
+        cc = db_user["region_cc"]
 
-    data = await steam.appdetails(appid, cc)
-    if data is None:
-        await query.edit_message_text(PRICE_ERROR, parse_mode="HTML")
-        return
+        data = await steam.appdetails(appid, cc)
+        if data is None:
+            await query.edit_message_text(PRICE_ERROR, parse_mode="HTML")
+            return
 
-    # Remember the game name for wishlist-add and back-button flows.
-    game_name = data.get("name", "Unknown")
-    if context.user_data is not None:
-        context.user_data["last_price_appid"] = appid
-        context.user_data["last_price_name"] = game_name
+        # Remember the game name for wishlist-add and back-button flows.
+        game_name = data.get("name", "Unknown")
+        if context.user_data is not None:
+            context.user_data["last_price_appid"] = appid
+            context.user_data["last_price_name"] = game_name
 
-    text, kb, header_image = await _build_result_card(data, cc, db_user["currency_code"])
+        text, kb, header_image = await _build_result_card(data, cc, db_user["currency_code"])
 
-    try:
-        # Delete the search-results text message.
-        await query.message.delete()  # type: ignore[union-attr]
-    except Exception as exc:
-        logger.debug("price_select delete old message: {!r}", exc)
+        try:
+            # Delete the search-results text message.
+            await query.message.delete()  # type: ignore[union-attr]
+        except Exception as exc:
+            logger.debug("price_select delete old message: {!r}", exc)
 
-    try:
-        # Send a photo message with the game cover art + price card caption.
-        await context.bot.send_photo(
-            chat_id=user.id,
-            photo=header_image,
-            caption=text,
-            parse_mode="HTML",
-            reply_markup=kb,
-        )
-    except Exception as exc:
-        logger.warning("price_select send_photo failed: {!r}", exc)
-        # Fallback: send as text if photo fails.
-        await context.bot.send_message(
-            chat_id=user.id,
-            text=text,
-            parse_mode="HTML",
-            reply_markup=kb,
-        )
+        try:
+            # Send a photo message with the game cover art + price card caption.
+            await context.bot.send_photo(
+                chat_id=user.id,
+                photo=header_image,
+                caption=text,
+                parse_mode="HTML",
+                reply_markup=kb,
+            )
+        except Exception as exc:
+            logger.warning("price_select send_photo failed: {!r}", exc)
+            # Fallback: send as text if photo fails.
+            await context.bot.send_message(
+                chat_id=user.id,
+                text=text,
+                parse_mode="HTML",
+                reply_markup=kb,
+            )
 
 
 # ─── "Back to Game" button ───────────────────────────────────────────────────
@@ -224,29 +228,30 @@ async def price_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     if user is None:
         return
 
-    db_user = await crud.get_or_create_user(user.id)
-    cc = db_user["region_cc"]
+    async with TypingIndicator(context, user.id):
+        db_user = await crud.get_or_create_user(user.id)
+        cc = db_user["region_cc"]
 
-    data = await steam.appdetails(appid, cc)
-    if data is None:
+        data = await steam.appdetails(appid, cc)
+        if data is None:
+            try:
+                await query.edit_message_caption(
+                    caption=PRICE_ERROR,
+                    parse_mode="HTML",
+                )
+            except Exception:
+                await query.edit_message_text(PRICE_ERROR, parse_mode="HTML")
+            return
+
+        text, kb, _ = await _build_result_card(data, cc, db_user["currency_code"])
         try:
             await query.edit_message_caption(
-                caption=PRICE_ERROR,
+                caption=text,
                 parse_mode="HTML",
+                reply_markup=kb,
             )
-        except Exception:
-            await query.edit_message_text(PRICE_ERROR, parse_mode="HTML")
-        return
-
-    text, kb, _ = await _build_result_card(data, cc, db_user["currency_code"])
-    try:
-        await query.edit_message_caption(
-            caption=text,
-            parse_mode="HTML",
-            reply_markup=kb,
-        )
-    except Exception as exc:
-        logger.warning("price_back edit_message_caption failed: {!r}", exc)
+        except Exception as exc:
+            logger.warning("price_back edit_message_caption failed: {!r}", exc)
 
 
 # ─── "Add to Wishlist" button ────────────────────────────────────────────────
@@ -323,42 +328,47 @@ async def price_compare_callback(update: Update, context: ContextTypes.DEFAULT_T
     except Exception:
         pass  # message may already be identical
 
-    lines: list[str] = ["🌍 <b>Region Price Comparison</b>\n"]
-    for cc, label in _COMPARE_REGIONS:
-        data = await steam.appdetails(appid, cc)
-        if data is None or data.get("price_overview") is None:
-            if data is not None and data.get("is_free"):
-                lines.append(f"  {label}: 🆓 Free to Play")
-            else:
-                lines.append(f"  {label}: ⚠️ N/A")
-        else:
-            po = data["price_overview"]
-            final = po.get("final_formatted", "?")
-            discount = po.get("discount_percent", 0)
-            if discount > 0:
-                initial = po.get("initial_formatted", "")
-                if initial:
-                    lines.append(
-                        f"  {label}: <b>{final}</b>  <s>{initial}</s>  (−{discount}%)"
-                    )
+    user = update.effective_user
+    if user is None:
+        return
+
+    async with TypingIndicator(context, user.id):
+        lines: list[str] = ["🌍 <b>Region Price Comparison</b>\n"]
+        for cc, label in _COMPARE_REGIONS:
+            data = await steam.appdetails(appid, cc)
+            if data is None or data.get("price_overview") is None:
+                if data is not None and data.get("is_free"):
+                    lines.append(f"  {label}: 🆓 Free to Play")
                 else:
-                    lines.append(f"  {label}: <b>{final}</b>  (−{discount}%)")
+                    lines.append(f"  {label}: ⚠️ N/A")
             else:
-                lines.append(f"  {label}: <b>{final}</b>")
+                po = data["price_overview"]
+                final = po.get("final_formatted", "?")
+                discount = po.get("discount_percent", 0)
+                if discount > 0:
+                    initial = po.get("initial_formatted", "")
+                    if initial:
+                        lines.append(
+                            f"  {label}: <b>{final}</b>  <s>{initial}</s>  (−{discount}%)"
+                        )
+                    else:
+                        lines.append(f"  {label}: <b>{final}</b>  (−{discount}%)")
+                else:
+                    lines.append(f"  {label}: <b>{final}</b>")
 
-        # Small delay between API calls to be polite to Steam.
-        await asyncio.sleep(0.3)
+            # Small delay between API calls to be polite to Steam.
+            await asyncio.sleep(0.3)
 
-    lines.append("")
-    lines.append("\u2139\ufe0f Prices are in each region's local currency.")
+        lines.append("")
+        lines.append("\u2139\ufe0f Prices are in each region's local currency.")
 
-    back_kb = _back_to_game_keyboard(appid)
-    try:
-        await query.edit_message_caption(
-            caption="\n".join(lines), parse_mode="HTML", reply_markup=back_kb
-        )
-    except Exception as exc:
-        logger.warning("price_compare edit_message_caption failed: {!r}", exc)
+        back_kb = _back_to_game_keyboard(appid)
+        try:
+            await query.edit_message_caption(
+                caption="\n".join(lines), parse_mode="HTML", reply_markup=back_kb
+            )
+        except Exception as exc:
+            logger.warning("price_compare edit_message_caption failed: {!r}", exc)
 
 
 # ─── "Show DLCs" button ─────────────────────────────────────────────────────
@@ -392,66 +402,67 @@ async def price_dlc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user is None:
         return
 
-    db_user = await crud.get_or_create_user(user.id)
-    cc = db_user["region_cc"]
+    async with TypingIndicator(context, user.id):
+        db_user = await crud.get_or_create_user(user.id)
+        cc = db_user["region_cc"]
 
-    # We need the parent game's data to get the DLC list.
-    parent = await steam.appdetails(appid, cc)
-    if parent is None:
-        try:
-            await query.edit_message_caption(caption=PRICE_ERROR, parse_mode="HTML")
-        except Exception:
-            pass
-        return
+        # We need the parent game's data to get the DLC list.
+        parent = await steam.appdetails(appid, cc)
+        if parent is None:
+            try:
+                await query.edit_message_caption(caption=PRICE_ERROR, parse_mode="HTML")
+            except Exception:
+                pass
+            return
 
-    dlc_ids: list[int] = parent.get("dlc", [])
-    if not dlc_ids:
+        dlc_ids: list[int] = parent.get("dlc", [])
+        if not dlc_ids:
+            back_kb = _back_to_game_keyboard(appid)
+            try:
+                await query.edit_message_caption(
+                    caption="📦 <b>No DLCs found</b> for this game.",
+                    parse_mode="HTML",
+                    reply_markup=back_kb,
+                )
+            except Exception:
+                pass
+            return
+
+        dlc_ids = dlc_ids[:_MAX_DLCS]
+        lines: list[str] = [f"📦 <b>DLCs</b> (showing {len(dlc_ids)}):\n"]
+
+        for dlc_id in dlc_ids:
+            dlc_data = await steam.appdetails(dlc_id, cc)
+            if dlc_data is None:
+                lines.append(f"  • AppID {dlc_id} — ⚠️ unavailable")
+            else:
+                name = dlc_data.get("name", f"AppID {dlc_id}")
+                po = dlc_data.get("price_overview")
+                if dlc_data.get("is_free"):
+                    lines.append(f"  • <b>{name}</b> — 🆓 Free")
+                elif po is not None:
+                    final = po.get("final_formatted", "?")
+                    discount = po.get("discount_percent", 0)
+                    if discount > 0:
+                        lines.append(f"  • <b>{name}</b> — {final}  (−{discount}%)")
+                    else:
+                        lines.append(f"  • <b>{name}</b> — {final}")
+                else:
+                    lines.append(f"  • <b>{name}</b> — ⚠️ Not purchasable")
+
+            await asyncio.sleep(0.3)
+
+        total_dlc = len(parent.get("dlc", []))
+        if total_dlc > _MAX_DLCS:
+            lines.append(f"\n…and {total_dlc - _MAX_DLCS} more.")
+
         back_kb = _back_to_game_keyboard(appid)
         try:
             await query.edit_message_caption(
-                caption="📦 <b>No DLCs found</b> for this game.",
-                parse_mode="HTML",
-                reply_markup=back_kb,
+                caption="\n".join(lines), parse_mode="HTML", reply_markup=back_kb
             )
-        except Exception:
-            pass
-        return
-
-    dlc_ids = dlc_ids[:_MAX_DLCS]
-    lines: list[str] = [f"📦 <b>DLCs</b> (showing {len(dlc_ids)}):\n"]
-
-    for dlc_id in dlc_ids:
-        dlc_data = await steam.appdetails(dlc_id, cc)
-        if dlc_data is None:
-            lines.append(f"  • AppID {dlc_id} — ⚠️ unavailable")
-        else:
-            name = dlc_data.get("name", f"AppID {dlc_id}")
-            po = dlc_data.get("price_overview")
-            if dlc_data.get("is_free"):
-                lines.append(f"  • <b>{name}</b> — 🆓 Free")
-            elif po is not None:
-                final = po.get("final_formatted", "?")
-                discount = po.get("discount_percent", 0)
-                if discount > 0:
-                    lines.append(f"  • <b>{name}</b> — {final}  (−{discount}%)")
-                else:
-                    lines.append(f"  • <b>{name}</b> — {final}")
-            else:
-                lines.append(f"  • <b>{name}</b> — ⚠️ Not purchasable")
-
-        await asyncio.sleep(0.3)
-
-    total_dlc = len(parent.get("dlc", []))
-    if total_dlc > _MAX_DLCS:
-        lines.append(f"\n…and {total_dlc - _MAX_DLCS} more.")
-
-    back_kb = _back_to_game_keyboard(appid)
-    try:
-        await query.edit_message_caption(
-            caption="\n".join(lines), parse_mode="HTML", reply_markup=back_kb
-        )
-    except Exception as exc:
-        logger.warning("price_dlc edit_message_caption failed: {!r}", exc)
+        except Exception as exc:
+            logger.warning("price_dlc edit_message_caption failed: {!r}", exc)
 
 
 # ─── Result card builder ─────────────────────────────────────────────────────

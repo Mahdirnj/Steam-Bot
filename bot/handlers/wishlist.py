@@ -18,6 +18,8 @@ from loguru import logger
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
+from bot.utils import TypingIndicator
+
 from bot.keyboards import (
     BACK_TO_MENU_KEYBOARD,
     wishlist_remove_keyboard,
@@ -55,31 +57,36 @@ async def wishlist_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if update.message is None:
         return
 
-    args = context.args or []
-    if args:
-        sub = args[0].lower()
-        if sub == "add":
-            # /wishlist add elden ring → search immediately
-            rest = " ".join(args[1:]).strip()
-            if rest:
-                await _wishlist_add_search(update, context, rest)
-            else:
-                # /wishlist add (no name) → prompt
-                if context.user_data is not None:
-                    context.user_data["awaiting"] = "wishlist_add"
-                await update.message.reply_text(
-                    WISHLIST_ADD_ASK, parse_mode="HTML"
-                )
-            return
-        elif sub == "remove":
-            await wishlist_remove_picker(update, context)
-            return
-        elif sub == "summary":
-            await _wishlist_list(update, context, summary_only=True)
-            return
+    user = update.effective_user
+    if user is None:
+        return
 
-    # No subcommand — list all.
-    await _wishlist_list(update, context, summary_only=False)
+    async with TypingIndicator(context, user.id):
+        args = context.args or []
+        if args:
+            sub = args[0].lower()
+            if sub == "add":
+                # /wishlist add elden ring → search immediately
+                rest = " ".join(args[1:]).strip()
+                if rest:
+                    await _wishlist_add_search(update, context, rest)
+                else:
+                    # /wishlist add (no name) → prompt
+                    if context.user_data is not None:
+                        context.user_data["awaiting"] = "wishlist_add"
+                    await update.message.reply_text(
+                        WISHLIST_ADD_ASK, parse_mode="HTML"
+                    )
+                return
+            elif sub == "remove":
+                await wishlist_remove_picker(update, context)
+                return
+            elif sub == "summary":
+                await _wishlist_list(update, context, summary_only=True)
+                return
+
+        # No subcommand — list all.
+        await _wishlist_list(update, context, summary_only=False)
 
 
 # ─── Menu callback entry point ───────────────────────────────────────────────
@@ -95,37 +102,38 @@ async def wishlist_menu_callback(update: Update, context: ContextTypes.DEFAULT_T
     if user is None:
         return
 
-    # Show loading indicator.
-    await query.answer()
-    try:
-        await query.edit_message_text(
-            "📋 Loading your wishlist\u2026",
-            parse_mode="HTML",
-        )
-    except Exception:
-        pass
-
-    items = await crud.list_wishlist_for_user(user.id)
-    if not items:
+    async with TypingIndicator(context, user.id):
+        # Show loading indicator.
+        await query.answer()
         try:
             await query.edit_message_text(
-                WISHLIST_EMPTY,
+                "📋 Loading your wishlist\u2026",
                 parse_mode="HTML",
-                reply_markup=BACK_TO_MENU_KEYBOARD,
             )
         except Exception:
             pass
-        return
 
-    db_user = await crud.get_or_create_user(user.id)
-    cc = db_user["region_cc"]
+        items = await crud.list_wishlist_for_user(user.id)
+        if not items:
+            try:
+                await query.edit_message_text(
+                    WISHLIST_EMPTY,
+                    parse_mode="HTML",
+                    reply_markup=BACK_TO_MENU_KEYBOARD,
+                )
+            except Exception:
+                pass
+            return
 
-    text = await _build_wishlist_text(items, cc, summary_only=False)
-    kb = _wishlist_actions_keyboard()
-    try:
-        await query.edit_message_text(text, parse_mode="HTML", reply_markup=kb)
-    except Exception as exc:
-        logger.warning("wishlist_menu edit_message failed: {!r}", exc)
+        db_user = await crud.get_or_create_user(user.id)
+        cc = db_user["region_cc"]
+
+        text = await _build_wishlist_text(items, cc, summary_only=False)
+        kb = _wishlist_actions_keyboard()
+        try:
+            await query.edit_message_text(text, parse_mode="HTML", reply_markup=kb)
+        except Exception as exc:
+            logger.warning("wishlist_menu edit_message failed: {!r}", exc)
 
 
 # ─── /wishlist add — search + direct add ─────────────────────────────────────
@@ -142,34 +150,35 @@ async def _wishlist_add_search(
     if user is None:
         return
 
-    db_user = await crud.get_or_create_user(user.id)
-    cc = db_user["region_cc"]
+    async with TypingIndicator(context, user.id):
+        db_user = await crud.get_or_create_user(user.id)
+        cc = db_user["region_cc"]
 
-    logger.info("wishlist add search term={!r} user={} cc={}", term, user.id, cc)
+        logger.info("wishlist add search term={!r} user={} cc={}", term, user.id, cc)
 
-    results = await steam.storesearch(term, cc)
-    if not results:
-        from bot.messages import PRICE_NO_RESULTS
+        results = await steam.storesearch(term, cc)
+        if not results:
+            from bot.messages import PRICE_NO_RESULTS
+
+            await update.message.reply_text(
+                PRICE_NO_RESULTS.format(term=term),
+                parse_mode="HTML",
+            )
+            return
+
+        # Build keyboard — callbacks use "wish:direct:<appid>" for direct add.
+        rows = [
+            [InlineKeyboardButton(r["name"], callback_data=f"wish:direct:{r['appid']}:{r['name']}")]
+            for r in results
+        ]
+        rows.append([InlineKeyboardButton("⬅️ Home", callback_data="menu:main")])
+        kb = InlineKeyboardMarkup(rows)
 
         await update.message.reply_text(
-            PRICE_NO_RESULTS.format(term=term),
+            f"🔍 Results for <b>{term}</b> — tap to add to wishlist:",
             parse_mode="HTML",
+            reply_markup=kb,
         )
-        return
-
-    # Build keyboard — callbacks use "wish:direct:<appid>" for direct add.
-    rows = [
-        [InlineKeyboardButton(r["name"], callback_data=f"wish:direct:{r['appid']}:{r['name']}")]
-        for r in results
-    ]
-    rows.append([InlineKeyboardButton("⬅️ Home", callback_data="menu:main")])
-    kb = InlineKeyboardMarkup(rows)
-
-    await update.message.reply_text(
-        f"🔍 Results for <b>{term}</b> — tap to add to wishlist:",
-        parse_mode="HTML",
-        reply_markup=kb,
-    )
 
 
 async def handle_wishlist_add_input(
@@ -320,7 +329,7 @@ async def wishlist_remove_callback(
     removed = await crud.remove_wishlist_item(user.id, appid)
     if removed:
         logger.info("Wishlist remove: user={} appid={} name={!r}", user.id, appid, game_name)
-        await query.answer(WISHLIST_REMOVED.format(name=game_name), show_alert=True)
+        await query.answer(f"🗑️ {game_name} removed from your wishlist.", show_alert=True)
     else:
         await query.answer("Game not found in wishlist.", show_alert=True)
 
@@ -360,28 +369,29 @@ async def _wishlist_list(
     if user is None:
         return
 
-    items = await crud.list_wishlist_for_user(user.id)
-    if not items:
-        await update.message.reply_text(
-            WISHLIST_EMPTY,
-            parse_mode="HTML",
-            reply_markup=BACK_TO_MENU_KEYBOARD,
-        )
-        return
+    async with TypingIndicator(context, user.id):
+        items = await crud.list_wishlist_for_user(user.id)
+        if not items:
+            await update.message.reply_text(
+                WISHLIST_EMPTY,
+                parse_mode="HTML",
+                reply_markup=BACK_TO_MENU_KEYBOARD,
+            )
+            return
 
-    # Show loading indicator.
-    loading_msg = await update.message.reply_text("📋 Loading your wishlist\u2026", parse_mode="HTML")
+        # Show loading indicator.
+        loading_msg = await update.message.reply_text("📋 Loading your wishlist\u2026", parse_mode="HTML")
 
-    db_user = await crud.get_or_create_user(user.id)
-    cc = db_user["region_cc"]
+        db_user = await crud.get_or_create_user(user.id)
+        cc = db_user["region_cc"]
 
-    text = await _build_wishlist_text(items, cc, summary_only=summary_only)
-    kb = _wishlist_actions_keyboard()
+        text = await _build_wishlist_text(items, cc, summary_only=summary_only)
+        kb = _wishlist_actions_keyboard()
 
-    try:
-        await loading_msg.edit_text(text, parse_mode="HTML", reply_markup=kb)
-    except Exception as exc:
-        logger.warning("wishlist_list edit_message failed: {!r}", exc)
+        try:
+            await loading_msg.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        except Exception as exc:
+            logger.warning("wishlist_list edit_message failed: {!r}", exc)
 
 
 async def _build_wishlist_text(
@@ -472,55 +482,56 @@ async def wishlist_refresh_callback(update: Update, context: ContextTypes.DEFAUL
     if user is None:
         return
 
-    await query.answer()
-    try:
-        await query.edit_message_text(WISHLIST_REFRESHING, parse_mode="HTML")
-    except Exception:
-        pass
-
-    items = await crud.list_wishlist_for_user(user.id)
-    if not items:
+    async with TypingIndicator(context, user.id):
+        await query.answer()
         try:
-            await query.edit_message_text(
-                WISHLIST_EMPTY, parse_mode="HTML", reply_markup=BACK_TO_MENU_KEYBOARD
-            )
+            await query.edit_message_text(WISHLIST_REFRESHING, parse_mode="HTML")
         except Exception:
             pass
-        return
 
-    db_user = await crud.get_or_create_user(user.id)
-    cc = db_user["region_cc"]
+        items = await crud.list_wishlist_for_user(user.id)
+        if not items:
+            try:
+                await query.edit_message_text(
+                    WISHLIST_EMPTY, parse_mode="HTML", reply_markup=BACK_TO_MENU_KEYBOARD
+                )
+            except Exception:
+                pass
+            return
 
-    # Fetch fresh prices and update snapshots.
-    for item in items[:_MAX_WISHLIST_FETCH]:
-        data = await steam.appdetails(item["appid"], cc)
-        await asyncio.sleep(0.3)
+        db_user = await crud.get_or_create_user(user.id)
+        cc = db_user["region_cc"]
 
-        if data is None:
-            continue
+        # Fetch fresh prices and update snapshots.
+        for item in items[:_MAX_WISHLIST_FETCH]:
+            data = await steam.appdetails(item["appid"], cc)
+            await asyncio.sleep(0.3)
 
-        is_free = data.get("is_free", False)
-        po = data.get("price_overview")
+            if data is None:
+                continue
 
-        if is_free:
-            final_cents = 0
-            discount_pct = 0
-        elif po is not None:
-            final_cents = po.get("final", 0)
-            discount_pct = po.get("discount_percent", 0)
-        else:
-            final_cents = 0
-            discount_pct = 0
+            is_free = data.get("is_free", False)
+            po = data.get("price_overview")
 
-        await crud.upsert_snapshot(item["id"], final_cents, discount_pct)
+            if is_free:
+                final_cents = 0
+                discount_pct = 0
+            elif po is not None:
+                final_cents = po.get("final", 0)
+                discount_pct = po.get("discount_percent", 0)
+            else:
+                final_cents = 0
+                discount_pct = 0
 
-    # Rebuild and display the refreshed wishlist.
-    text = await _build_wishlist_text(items, cc, summary_only=False)
-    kb = _wishlist_actions_keyboard()
-    try:
-        await query.edit_message_text(text, parse_mode="HTML", reply_markup=kb)
-    except Exception as exc:
-        logger.warning("wishlist_refresh edit_message failed: {!r}", exc)
+            await crud.upsert_snapshot(item["id"], final_cents, discount_pct)
+
+        # Rebuild and display the refreshed wishlist.
+        text = await _build_wishlist_text(items, cc, summary_only=False)
+        kb = _wishlist_actions_keyboard()
+        try:
+            await query.edit_message_text(text, parse_mode="HTML", reply_markup=kb)
+        except Exception as exc:
+            logger.warning("wishlist_refresh edit_message failed: {!r}", exc)
 
 
 def _wishlist_actions_keyboard():

@@ -11,7 +11,7 @@ from loguru import logger
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.keyboards import MAIN_MENU_KEYBOARD, BACK_TO_MENU_KEYBOARD, region_picker_keyboard
+from bot.keyboards import MAIN_MENU_KEYBOARD, BACK_TO_MENU_KEYBOARD, build_main_menu_keyboard, region_picker_keyboard
 from bot.messages import (
     HELP_TEXT,
     REGION_CURRENT,
@@ -28,11 +28,12 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     logger.info("/start from user={} ({})", user.id, user.first_name)
 
+    db_user = await crud.get_or_create_user(user.id)
     text = _main_menu_text(user.first_name)
     await update.message.reply_text(
         text,
         parse_mode="HTML",
-        reply_markup=MAIN_MENU_KEYBOARD,
+        reply_markup=build_main_menu_keyboard(db_user["region_cc"]),
     )
 
 
@@ -74,11 +75,13 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     if action == "main":
         text = _main_menu_text(user.first_name)
+        db_user = await crud.get_or_create_user(user.id)
+        keyboard = build_main_menu_keyboard(db_user["region_cc"])
         try:
             await query.edit_message_text(
                 text,
                 parse_mode="HTML",
-                reply_markup=MAIN_MENU_KEYBOARD,
+                reply_markup=keyboard,
             )
         except Exception:
             # The message might be a photo message (from /price result card).
@@ -91,7 +94,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 chat_id=user.id,
                 text=text,
                 parse_mode="HTML",
-                reply_markup=MAIN_MENU_KEYBOARD,
+                reply_markup=keyboard,
             )
         return
 
@@ -202,6 +205,12 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 )
             except Exception:
                 pass
+        return
+
+    # "wishlist_refresh" action — re-fetch prices and update snapshots.
+    if action == "wishlist_refresh":
+        from bot.handlers.wishlist import wishlist_refresh_callback
+        await wishlist_refresh_callback(update, context)
         return
 
     logger.warning("Unknown menu action: {!r}", action)

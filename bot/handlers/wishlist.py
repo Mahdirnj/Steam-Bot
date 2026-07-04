@@ -29,6 +29,7 @@ from bot.messages import (
     WISHLIST_ITEM,
     WISHLIST_ITEM_SALE,
     WISHLIST_REMOVED,
+    WISHLIST_REFRESHING,
     WISHLIST_SUMMARY_EMPTY,
     WISHLIST_SUMMARY_HEADER,
 )
@@ -458,8 +459,72 @@ async def _build_wishlist_text(
     return header + body + footer
 
 
+# ─── Wishlist refresh callback ────────────────────────────────────────────────
+
+
+async def wishlist_refresh_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle menu:wishlist_refresh — re-fetch prices for all wishlisted games and update snapshots."""
+    query = update.callback_query
+    if query is None:
+        return
+
+    user = query.from_user
+    if user is None:
+        return
+
+    await query.answer()
+    try:
+        await query.edit_message_text(WISHLIST_REFRESHING, parse_mode="HTML")
+    except Exception:
+        pass
+
+    items = await crud.list_wishlist_for_user(user.id)
+    if not items:
+        try:
+            await query.edit_message_text(
+                WISHLIST_EMPTY, parse_mode="HTML", reply_markup=BACK_TO_MENU_KEYBOARD
+            )
+        except Exception:
+            pass
+        return
+
+    db_user = await crud.get_or_create_user(user.id)
+    cc = db_user["region_cc"]
+
+    # Fetch fresh prices and update snapshots.
+    for item in items[:_MAX_WISHLIST_FETCH]:
+        data = await steam.appdetails(item["appid"], cc)
+        await asyncio.sleep(0.3)
+
+        if data is None:
+            continue
+
+        is_free = data.get("is_free", False)
+        po = data.get("price_overview")
+
+        if is_free:
+            final_cents = 0
+            discount_pct = 0
+        elif po is not None:
+            final_cents = po.get("final", 0)
+            discount_pct = po.get("discount_percent", 0)
+        else:
+            final_cents = 0
+            discount_pct = 0
+
+        await crud.upsert_snapshot(item["id"], final_cents, discount_pct)
+
+    # Rebuild and display the refreshed wishlist.
+    text = await _build_wishlist_text(items, cc, summary_only=False)
+    kb = _wishlist_actions_keyboard()
+    try:
+        await query.edit_message_text(text, parse_mode="HTML", reply_markup=kb)
+    except Exception as exc:
+        logger.warning("wishlist_refresh edit_message failed: {!r}", exc)
+
+
 def _wishlist_actions_keyboard():
-    """Keyboard with Add / Remove / Summary / Home buttons."""
+    """Keyboard with Add / Remove / Refresh / Summary / Home buttons."""
     return InlineKeyboardMarkup(
         [
             [
@@ -467,6 +532,7 @@ def _wishlist_actions_keyboard():
                 InlineKeyboardButton("🗑️ Remove Game", callback_data="menu:wishlist_remove"),
             ],
             [
+                InlineKeyboardButton("🔄 Refresh Prices", callback_data="menu:wishlist_refresh"),
                 InlineKeyboardButton("🔥 Sale Summary", callback_data="menu:wishlist_summary"),
             ],
             [

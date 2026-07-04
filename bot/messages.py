@@ -115,6 +115,7 @@ WISHLIST_ALREADY_EXISTS = "\u2139\ufe0f <b>{name}</b> is already in your wishlis
 WISHLIST_SUMMARY_EMPTY = "📋 No wishlisted games are currently on sale."
 WISHLIST_SUMMARY_HEADER = "🔥 <b>Games on sale in your wishlist ({count}):</b>\n"
 WISHLIST_ERROR = "⚠️ Couldn't load your wishlist right now. Please try again later."
+WISHLIST_REFRESHING = "🔄 Refreshing your prices\u2026"
 
 
 # ── /region flow ─────────────────────────────────────────────────────────────
@@ -133,3 +134,13 @@ WISHLIST_ADD_ASK = "🔍 Send me a game name to add to your wishlist:"
 # ── Error templates ──────────────────────────────────────────────────────────
 
 GENERIC_ERROR = "⚠️ Something went wrong. Please try again."
+
+
+# ── Inline mode ──────────────────────────────────────────────────────────────
+
+INLINE_PRICE_CARD = (
+    "🎮 <b>{name}</b>\n"
+    "\n"
+    "{price_line}\n"
+    "{keys_line}"
+)

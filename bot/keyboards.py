@@ -33,6 +33,22 @@ MAIN_MENU_KEYBOARD = InlineKeyboardMarkup(
 )
 
 
+def build_main_menu_keyboard(region_cc: str = "US") -> InlineKeyboardMarkup:
+    """Build main menu keyboard with the user's current region shown on the Settings button."""
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("🔍 Search Game Price", callback_data="menu:price"),
+                InlineKeyboardButton("🔑 TF2 Key / Ticket", callback_data="menu:tf2"),
+            ],
+            [
+                InlineKeyboardButton("📋 My Wishlist", callback_data="menu:wishlist"),
+                InlineKeyboardButton(f"⚙️ Region: {region_cc}", callback_data="menu:region"),
+            ],
+        ]
+    )
+
+
 # ── Search results (from /price or menu:price) ──────────────────────────────
 
 
@@ -170,3 +186,13 @@ TF2_KEYBOARD = InlineKeyboardMarkup(
 BACK_TO_MENU_KEYBOARD = InlineKeyboardMarkup(
     [[InlineKeyboardButton("⬅️ Back to Menu", callback_data="menu:main")]]
 )
+
+
+# ── Inline mode price card ───────────────────────────────────────────────────
+
+
+def inline_price_keyboard(appid: int, steam_url: str) -> InlineKeyboardMarkup:
+    """Keyboard attached to inline mode price card results."""
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🔗 Steam Page", url=steam_url)]]
+    )

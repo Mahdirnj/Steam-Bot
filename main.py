@@ -19,6 +19,7 @@ from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
     CommandHandler,
+    InlineQueryHandler,
 )
 
 from config import settings
@@ -116,6 +117,7 @@ from bot.handlers.wishlist import (  # noqa: E402
     wishlist_handler,
     wishlist_remove_callback,
 )
+from bot.handlers.inline import inline_query_handler  # noqa: E402
 from scheduler.jobs import check_all_wishlists  # noqa: E402
 
 
@@ -225,6 +227,9 @@ def main() -> None:
         CallbackQueryHandler(wishlist_remove_callback, pattern=r"^wish:remove:\d+$")
     )
 
+    # --- Inline mode handler ---
+    app.add_handler(InlineQueryHandler(inline_query_handler))
+
     # --- Text input dispatcher (must be LAST — lowest priority) ---
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, text_input_handler)
@@ -234,7 +239,21 @@ def main() -> None:
     logger.info("Handlers registered. Starting long-polling...")
 
     async def run() -> None:
-        await app.initialize()
+        # Retry initialization on transient network errors (ConnectTimeout, etc.)
+        max_retries = 5
+        for attempt in range(1, max_retries + 1):
+            try:
+                await app.initialize()
+                break
+            except Exception as exc:
+                if attempt == max_retries:
+                    logger.error("Failed to connect after {} attempts: {!r}", max_retries, exc)
+                    raise
+                wait = min(2 ** attempt, 30)
+                logger.warning("Connection failed (attempt {}/{}): {!r}. Retrying in {}s...",
+                               attempt, max_retries, exc, wait)
+                await asyncio.sleep(wait)
+
         await on_startup(app)  # post_init isn't called in manual lifecycle — call explicitly
         await app.start()
         if app.updater is None:

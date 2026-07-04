@@ -266,12 +266,12 @@ graph TD
     A[User sends /price elden ring] --> B[Bot searches Steam Store API]
     B --> C{Results found?}
     C -->|Yes| D[Show game buttons]
-    C -->|No| E[Show "No results" message]
+    C -->|No| E[Show no-results message]
     D --> F[User taps a game]
     F --> G[Fetch game details + price]
     G --> H[Calculate TF2 key equivalents]
     H --> I[Show result card with photo]
-    
+
     J[Scheduler runs every 6h] --> K[Fetch all wishlist prices]
     K --> L{Price changed?}
     L -->|Yes| M[Send Telegram notification]

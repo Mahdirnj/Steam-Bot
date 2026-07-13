@@ -24,10 +24,13 @@ WELCOME_TEXT = (
 HELP_TEXT = (
     "\U0001f4d6 <b>Steam Deal Bot \u2014 Commands</b>\n"
     "\n"
-    "<b>/price</b> &lt;game name&gt;\n"
+    "<b>/price</b> &lt;game name or URL&gt;\n"
     "  Search for a game and see its price in your saved region.\n"
     "  Shows game cover art, price, discounts, and TF2 key/ticket equivalents.\n"
-    "  Example: <code>/price elden ring</code>\n"
+    "  You can also paste a Steam store URL directly!\n"
+    "  Examples:\n"
+    "    <code>/price elden ring</code>\n"
+    "    <code>/price https://store.steampowered.com/app/1174180/</code>\n"
     "\n"
     "<b>/tf2</b>\n"
     "  Show live Mann Co. Key and Tour of Duty Ticket prices\n"
@@ -44,6 +47,7 @@ HELP_TEXT = (
     "  Manage your game wishlist. Get notified on price changes.\n"
     "    <code>/wishlist</code> \u2014 list all wishlisted games\n"
     "    <code>/wishlist add elden ring</code> \u2014 add a game\n"
+    "    <code>/wishlist add https://store.steampowered.com/app/1174180/</code> \u2014 add via URL\n"
     "    <code>/wishlist remove</code> \u2014 remove a game (interactive)\n"
     "    <code>/wishlist summary</code> \u2014 only show games on sale\n"
     "\n"
@@ -51,7 +55,10 @@ HELP_TEXT = (
     "  Change your default region / currency.\n"
     "\n"
     "<b>/help</b>\n"
-    "  Show this help message."
+    "  Show this help message.\n"
+    "\n"
+    "\U0001f4e5 <b>Tip:</b> You can also paste a Steam URL anywhere\n"
+    "  to instantly see the game's price card!"
 )
 
 
@@ -109,15 +116,76 @@ CONVERT_USAGE = (
 
 # ── /wishlist flow ───────────────────────────────────────────────────────────
 
-WISHLIST_EMPTY = "📋 Your wishlist is empty.\nAdd games with <b>/wishlist add &lt;game&gt;</b> or via /price."
-WISHLIST_HEADER = "📋 <b>Your Wishlist ({count} games):</b>\n"
-WISHLIST_ITEM = "  • <b>{name}</b> — {price_info}\n"
-WISHLIST_ITEM_SALE = "🔥 <b>{name}</b> — <s>{initial}</s> → <b>{final}</b> (−{pct}%)\n"
+WISHLIST_EMPTY = (
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "📋 <b>My Wishlist</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "\n"
+    "Your wishlist is empty!\n"
+    "\n"
+    "Add games with:\n"
+    "  • /wishlist add &lt;game&gt;\n"
+    "  • /price &lt;game&gt; → tap ➕"
+)
+
+WISHLIST_HEADER = (
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "📋 <b>My Wishlist</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "\n"
+    "Showing <b>{count}</b> tracked {item_word}\n"
+    "\n"
+)
+
+WISHLIST_ITEM_NORMAL = (
+    "  {number}. <b>{name}</b>\n"
+    "       💰 {price}\n"
+    "\n"
+)
+
+WISHLIST_ITEM_SALE = (
+    "  {number}. <b>{name}</b> 🔥\n"
+    "       💰 <s>{initial}</s> → <b>{final}</b>\n"
+    "       🏷️ {pct}% off\n"
+    "\n"
+)
+
+WISHLIST_ITEM_UNAVAILABLE = (
+    "  {number}. <b>{name}</b>\n"
+    "       ⚠️ {status}\n"
+    "\n"
+)
+
+WISHLIST_ITEM_FREE = (
+    "  {number}. <b>{name}</b>\n"
+    "       🆓 Free to Play\n"
+    "\n"
+)
+
 WISHLIST_ADDED = "\u2705 <b>{name}</b> added to your wishlist."
 WISHLIST_REMOVED = "\U0001f5d1\ufe0f <b>{name}</b> removed from your wishlist."
 WISHLIST_ALREADY_EXISTS = "\u2139\ufe0f <b>{name}</b> is already in your wishlist."
-WISHLIST_SUMMARY_EMPTY = "📋 No wishlisted games are currently on sale."
-WISHLIST_SUMMARY_HEADER = "🔥 <b>Games on sale in your wishlist ({count}):</b>\n"
+
+WISHLIST_FOOTER = "\n━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+WISHLIST_SUMMARY_EMPTY = (
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "🔥 <b>Sale Summary</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "\n"
+    "No wishlisted games are currently on sale.\n"
+    "We'll notify you when prices drop!"
+)
+
+WISHLIST_SUMMARY_HEADER = (
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "🔥 <b>Sale Summary</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "\n"
+    "<b>{count}</b> {game_word} on sale right now:\n"
+    "\n"
+)
+
 WISHLIST_ERROR = "⚠️ Couldn't load your wishlist right now. Please try again later."
 WISHLIST_REFRESHING = "🔄 Refreshing your prices\u2026"
 

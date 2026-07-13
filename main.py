@@ -127,6 +127,8 @@ from scheduler.jobs import check_all_wishlists  # noqa: E402
 from telegram import Update  # noqa: E402
 from telegram.ext import MessageHandler, filters  # noqa: E402
 
+from bot.utils import extract_appid_from_text  # noqa: E402
+
 
 async def text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Dispatch plain text messages to the correct handler based on user state.
@@ -135,6 +137,14 @@ async def text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     are always processed first. Only messages that don't match any command or
     callback pattern reach here.
     """
+    # Check for Steam URL first — this takes priority over awaiting states
+    # so users can paste a URL anytime.
+    if update.message and update.message.text:
+        appid = extract_appid_from_text(update.message.text)
+        if appid is not None:
+            await handle_steam_url(update, context, appid)
+            return
+
     # Try each module's input handler in order.  The first one that recognizes
     # the current awaiting state consumes the message.
     if await handle_price_input(update, context):
@@ -145,6 +155,60 @@ async def text_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if await handle_region_input(update, context):
         return
+
+
+async def handle_steam_url(update: Update, context: ContextTypes.DEFAULT_TYPE, appid: int) -> None:
+    """Handle a Steam store URL — fetch game details and show the result card.
+
+    This allows users to paste a Steam URL (e.g. from their browser) and
+    instantly get the price card with all actions (wishlist, compare, DLCs, etc).
+    """
+    from bot.handlers.price import _build_result_card
+    from bot.keyboards import result_card_keyboard
+    from db import crud
+    from services import steam
+
+    if update.message is None:
+        return
+
+    user = update.effective_user
+    if user is None:
+        return
+
+    db_user = await crud.get_or_create_user(user.id)
+    cc = db_user["region_cc"]
+
+    data = await steam.appdetails(appid, cc)
+    if data is None:
+        await update.message.reply_text(
+            "⚠️ Couldn't fetch game details for this URL. Please check the link and try again.",
+            parse_mode="HTML",
+        )
+        return
+
+    game_name = data.get("name", "Unknown")
+    if context.user_data is not None:
+        context.user_data["last_price_appid"] = appid
+        context.user_data["last_price_name"] = game_name
+
+    text, kb, header_image = await _build_result_card(data, cc, db_user["currency_code"])
+
+    try:
+        await context.bot.send_photo(
+            chat_id=user.id,
+            photo=header_image,
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+    except Exception as exc:
+        logger.warning("handle_steam_url send_photo failed: {!r}", exc)
+        await context.bot.send_message(
+            chat_id=user.id,
+            text=text,
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
 
 
 # ── Build and run ────────────────────────────────────────────────────────────

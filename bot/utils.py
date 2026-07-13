@@ -1,51 +1,30 @@
 """Shared utilities for bot handlers."""
-import asyncio
+import re
 
-from telegram.constants import ChatAction
-from telegram.ext import ContextTypes
-
-
-async def _keep_typing(context: ContextTypes.DEFAULT_TYPE, chat_id: int, stop: asyncio.Event) -> None:
-    """Periodically re-send typing action until stop event is set."""
-    while not stop.is_set():
-        try:
-            await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
-        except Exception:
-            pass
-        try:
-            await asyncio.wait_for(stop.wait(), timeout=4.0)
-        except asyncio.TimeoutError:
-            pass
+# Steam store URL patterns we support:
+# https://store.steampowered.com/app/1174180/Red_Dead_Redemption_2/
+# https://store.steampowered.com/app/1174180/
+# http://store.steampowered.com/app/1174180
+# store.steampowered.com/app/1174180/
+STEAM_URL_PATTERN = re.compile(
+    r"(?:https?://)?(?:www\.)?store\.steampowered\.com/app/(\d+)",
+    re.IGNORECASE,
+)
 
 
-class TypingIndicator:
-    """Async context manager that keeps the Telegram 'typing...' indicator alive.
+def extract_appid_from_text(text: str) -> int | None:
+    """Extract a Steam appid from a Steam store URL in the text.
 
-    Usage:
-        async with TypingIndicator(context, chat_id):
-            # slow work here — typing indicator stays visible
-            data = await steam.appdetails(appid, cc)
+    Returns the appid (int) if found, None otherwise.
+    Matches URLs like:
+        https://store.steampowered.com/app/1174180/Red_Dead_Redemption_2/
+        store.steampowered.com/app/1174180
+        https://store.steampowered.com/app/12345/
     """
-
-    def __init__(self, context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
-        self.context = context
-        self.chat_id = chat_id
-        self._stop = asyncio.Event()
-        self._task: asyncio.Task | None = None
-
-    async def __aenter__(self):
+    match = STEAM_URL_PATTERN.search(text)
+    if match:
         try:
-            await self.context.bot.send_chat_action(chat_id=self.chat_id, action=ChatAction.TYPING)
-        except Exception:
-            pass  # Don't crash the handler if typing action fails
-        self._task = asyncio.create_task(_keep_typing(self.context, self.chat_id, self._stop))
-        return self
-
-    async def __aexit__(self, *args):
-        self._stop.set()
-        if self._task is not None:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
+            return int(match.group(1))
+        except (ValueError, TypeError):
+            return None
+    return None

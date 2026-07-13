@@ -11,7 +11,7 @@ from loguru import logger
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.utils import TypingIndicator
+
 
 from bot.keyboards import BACK_TO_MENU_KEYBOARD, build_main_menu_keyboard, region_picker_keyboard
 from bot.messages import (
@@ -116,12 +116,11 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         from bot.keyboards import TF2_KEYBOARD
         from bot.handlers.tf2 import _build_tf2_text
 
-        async with TypingIndicator(context, user.id):
-            db_user = await crud.get_or_create_user(user.id)
-            text = await _build_tf2_text(db_user["currency_code"])
-            await query.edit_message_text(
-                text, parse_mode="HTML", reply_markup=TF2_KEYBOARD
-            )
+        db_user = await crud.get_or_create_user(user.id)
+        text = await _build_tf2_text(db_user["currency_code"])
+        await query.edit_message_text(
+            text, parse_mode="HTML", reply_markup=TF2_KEYBOARD
+        )
         return
 
     # "region" action — show current region + picker keyboard.
@@ -181,33 +180,32 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if action == "wishlist_summary":
         from bot.handlers.wishlist import _build_wishlist_text, _wishlist_actions_keyboard
 
-        async with TypingIndicator(context, user.id):
-            await query.answer()
+        await query.answer()
+        try:
+            await query.edit_message_text(
+                "📋 Loading sale summary\u2026",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+        items = await crud.list_wishlist_for_user(user.id)
+        if not items:
+            from bot.messages import WISHLIST_EMPTY
+            await query.edit_message_text(
+                WISHLIST_EMPTY,
+                parse_mode="HTML",
+                reply_markup=BACK_TO_MENU_KEYBOARD,
+            )
+        else:
+            db_user = await crud.get_or_create_user(user.id)
+            text = await _build_wishlist_text(items, db_user["region_cc"], summary_only=True)
             try:
                 await query.edit_message_text(
-                    "📋 Loading sale summary\u2026",
-                    parse_mode="HTML",
+                    text, parse_mode="HTML", reply_markup=_wishlist_actions_keyboard()
                 )
             except Exception:
                 pass
-
-            items = await crud.list_wishlist_for_user(user.id)
-            if not items:
-                from bot.messages import WISHLIST_EMPTY
-                await query.edit_message_text(
-                    WISHLIST_EMPTY,
-                    parse_mode="HTML",
-                    reply_markup=BACK_TO_MENU_KEYBOARD,
-                )
-            else:
-                db_user = await crud.get_or_create_user(user.id)
-                text = await _build_wishlist_text(items, db_user["region_cc"], summary_only=True)
-                try:
-                    await query.edit_message_text(
-                        text, parse_mode="HTML", reply_markup=_wishlist_actions_keyboard()
-                    )
-                except Exception:
-                    pass
         return
 
     # "wishlist_refresh" action — re-fetch prices and update snapshots.

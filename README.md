@@ -48,6 +48,7 @@ Search any Steam game and see:
 - Discount percentage & original price
 - Number of TF2 keys/tickets needed to buy it
 - Game cover art preview
+- **Paste Steam URLs directly** for instant results
 
 </td>
 <td width="50%">
@@ -65,10 +66,11 @@ Compare prices across **17+ regions**:
 
 ### 📋 Smart Wishlist
 Track games you want:
-- Add/remove games interactively
+- Add via search, command, or **Steam URL**
 - 🔄 **Refresh prices** anytime
 - 🔥 Sale summary (only discounted games)
 - Automatic price change notifications
+- Clean, organized list with sale highlights
 
 </td>
 <td>
@@ -92,6 +94,18 @@ Search from **any chat**:
 
 </td>
 <td>
+
+### 🔗 Steam URL Support
+Paste a Steam store URL anywhere:
+- `/price https://store.steampowered.com/app/1174180/`
+- `/wishlist add <url>`
+- Or just paste the URL directly in chat
+- Instantly shows the game's price card
+
+</td>
+</tr>
+<tr>
+<td colspan="2">
 
 ### 🐳 Docker Ready
 Production-grade deployment:
@@ -157,14 +171,18 @@ python main.py
 |---------|-------------|
 | `/start` | Welcome message with quick-action menu |
 | `/help` | Show all available commands |
-| `/price <game>` | Search for a game's price |
+| `/price <game\|url>` | Search for a game's price (accepts names or Steam URLs) |
 | `/tf2` | Show live Mann Co. Key & Ticket prices |
 | `/convert <amount> [keys\|tickets]` | Convert between keys/tickets and currency |
 | `/wishlist` | View your wishlist with current prices |
-| `/wishlist add <game>` | Add a game to your wishlist |
+| `/wishlist add <game\|url>` | Add a game to your wishlist (accepts names or Steam URLs) |
 | `/wishlist remove` | Interactive game removal picker |
 | `/wishlist summary` | Show only games currently on sale |
 | `/region` | Change your default region/currency |
+
+### 💡 Tips
+- **Paste a Steam URL** anywhere in chat to instantly see the game's price card
+- Use inline mode (`@botname <game>`) to search from any conversation
 
 ---
 
@@ -200,11 +218,11 @@ Steam-Bot/
 ├── bot/
 │   ├── keyboards.py        # All InlineKeyboardMarkup builders
 │   ├── messages.py         # Message templates and text constants
-│   ├── utils.py            # Shared utilities (TypingIndicator, etc.)
+│   ├── utils.py            # Shared utilities (Steam URL parsing)
 │   └── handlers/
 │       ├── start.py        # /start, /help, main menu callbacks
-│       ├── price.py        # /price — search, result card, compare, DLCs
-│       ├── wishlist.py     # /wishlist — list, add, remove, refresh, summary
+│       ├── price.py        # /price — search, result card, compare, DLCs, URL support
+│       ├── wishlist.py     # /wishlist — list, add, remove, refresh, summary, URL support
 │       ├── tf2.py          # /tf2, /convert — key/ticket prices
 │       ├── settings.py     # /region — region picker
 │       └── inline.py       # Inline mode — @botname search from any chat
@@ -263,19 +281,47 @@ Steam-Bot/
 
 ```mermaid
 graph TD
-    A[User sends /price elden ring] --> B[Bot searches Steam Store API]
-    B --> C{Results found?}
-    C -->|Yes| D[Show game buttons]
-    C -->|No| E[Show no-results message]
-    D --> F[User taps a game]
-    F --> G[Fetch game details + price]
-    G --> H[Calculate TF2 key equivalents]
-    H --> I[Show result card with photo]
+    A[User sends /price or pastes URL] --> B{Input type?}
+    B -->|Game name| C[Search Steam Store API]
+    B -->|Steam URL| D[Extract appid from URL]
+    C --> E{Results found?}
+    E -->|Yes| F[Show game buttons]
+    E -->|No| G[Show no-results message]
+    D --> H[Fetch game details]
+    F --> I[User taps a game]
+    I --> H
+    H --> J[Calculate TF2 key equivalents]
+    J --> K[Show result card with photo]
 
-    J[Scheduler runs every 6h] --> K[Fetch all wishlist prices]
-    K --> L{Price changed?}
-    L -->|Yes| M[Send Telegram notification]
-    L -->|No| N[Update snapshot timestamp]
+    L[Scheduler runs every 6h] --> M[Fetch all wishlist prices]
+    M --> N{Price changed?}
+    N -->|Yes| O[Send Telegram notification]
+    N -->|No| P[Update snapshot timestamp]
+```
+
+---
+
+## 🔗 Steam URL Support
+
+The bot supports pasting Steam store URLs directly for instant game lookups:
+
+### Supported URL Formats
+```
+https://store.steampowered.com/app/1174180/Red_Dead_Redemption_2/
+https://store.steampowered.com/app/1174180/
+http://store.steampowered.com/app/1174180
+store.steampowered.com/app/1174180
+```
+
+### Usage Examples
+```
+# Search by URL
+/price https://store.steampowered.com/app/1174180/
+
+# Add to wishlist by URL
+/wishlist add https://store.steampowered.com/app/1174180/
+
+# Or just paste the URL directly in chat!
 ```
 
 ---

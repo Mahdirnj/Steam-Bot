@@ -29,6 +29,14 @@ from bot.keyboards import (
 from bot.messages import (
     PRICE_ASK_NAME,
     PRICE_ERROR,
+    PRICE_INFO_DEVELOPER,
+    PRICE_INFO_DIVIDER,
+    PRICE_INFO_GENRES,
+    PRICE_INFO_LAST_UPDATED,
+    PRICE_INFO_METACRITIC,
+    PRICE_INFO_PLATFORMS,
+    PRICE_INFO_RELEASE,
+    PRICE_INFO_REVIEWS,
     PRICE_NO_RESULTS,
     PRICE_RESULT_CARD,
     PRICE_RESULT_DISCOUNT_EXTRA,
@@ -601,8 +609,79 @@ async def _build_result_card(
         price_line = PRICE_RESULT_NOT_PURCHASABLE
         keys_line = ""
 
+    # ── Game info section ──
+    info_parts = []
+
+    # Developer/Publisher
+    developers = data.get("developers", [])
+    if developers:
+        info_parts.append(PRICE_INFO_DEVELOPER.format(developer=", ".join(developers[:2])))
+
+    # Genres
+    genres = data.get("genres", [])
+    if genres:
+        genre_names = [g.get("description", "") for g in genres[:3]]
+        genre_names = [g for g in genre_names if g]
+        if genre_names:
+            info_parts.append(PRICE_INFO_GENRES.format(genres=" · ".join(genre_names)))
+
+    # Release date
+    release_date = data.get("release_date", {})
+    if release_date:
+        date_str = release_date.get("date", "")
+        coming_soon = release_date.get("coming_soon", False)
+        if date_str:
+            if coming_soon:
+                info_parts.append(PRICE_INFO_RELEASE.format(release_date=f"Coming Soon ({date_str})"))
+            else:
+                info_parts.append(PRICE_INFO_RELEASE.format(release_date=date_str))
+
+    # Last update date - use the last_update field from appdetails if available
+    # Some games have this field, others might have it in different formats
+    last_update = data.get("last_update")
+    if last_update:
+        info_parts.append(PRICE_INFO_LAST_UPDATED.format(update_date=last_update))
+
+    # Metacritic score
+    metacritic = data.get("metacritic", {})
+    if metacritic:
+        score = metacritic.get("score")
+        if score is not None:
+            info_parts.append(PRICE_INFO_METACRITIC.format(score=score))
+
+    # User reviews (fetch from reviews endpoint) - only show the summary line
+    reviews = await steam.get_reviews(appid)
+    if reviews and reviews.get("total_reviews", 0) > 0:
+        review_score = reviews.get("review_score", "No reviews")
+        review_pct = reviews.get("review_percentage", 0)
+
+        # Format review line with expression
+        info_parts.append(PRICE_INFO_REVIEWS.format(
+            score=review_score,
+            percentage=review_pct
+        ))
+
+    # Platforms
+    platforms = data.get("platforms", {})
+    if platforms:
+        platform_list = []
+        if platforms.get("windows"):
+            platform_list.append("Windows")
+        if platforms.get("mac"):
+            platform_list.append("Mac")
+        if platforms.get("linux"):
+            platform_list.append("Linux")
+        if platform_list:
+            info_parts.append(PRICE_INFO_PLATFORMS.format(platforms=", ".join(platform_list)))
+
+    # Build info line with divider
+    if info_parts:
+        info_line = "\n" + PRICE_INFO_DIVIDER + "\n" + "\n".join(info_parts)
+    else:
+        info_line = ""
+
     text = PRICE_RESULT_CARD.format(
-        name=name, price_line=price_line, keys_line=keys_line
+        name=name, price_line=price_line, keys_line=keys_line, info_line=info_line
     )
 
     steam_url = f"https://store.steampowered.com/app/{appid}"

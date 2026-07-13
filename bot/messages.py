@@ -79,6 +79,7 @@ PRICE_RESULT_CARD = (
     "\n"
     "{price_line}\n"
     "{keys_line}"
+    "{info_line}"
 )
 
 PRICE_RESULT_FREE = "🆓 <b>Free to Play</b>"
@@ -86,6 +87,16 @@ PRICE_RESULT_PRICE = "💰 Price: <b>{final}</b>{discount_extra}"
 PRICE_RESULT_DISCOUNT_EXTRA = "  (was {initial}, <b>−{pct}%</b>)"
 PRICE_RESULT_NOT_PURCHASABLE = "⚠️ Not purchasable in your region."
 PRICE_RESULT_KEYS = "🔑 Keys needed: <b>~{keys}</b>  (≈{tickets} tickets)\n"
+
+# Game info section templates
+PRICE_INFO_DIVIDER = "━━━━━━━━━━━━━━━━━━━━━━━━━━"
+PRICE_INFO_DEVELOPER = "🏢 {developer}"
+PRICE_INFO_GENRES = "🎭 {genres}"
+PRICE_INFO_RELEASE = "📅 Release date: {release_date}"
+PRICE_INFO_LAST_UPDATED = "🔄 Latest update: {update_date}"
+PRICE_INFO_METACRITIC = "⭐ Metacritic: <b>{score}</b>/100"
+PRICE_INFO_PLATFORMS = "💻 {platforms}"
+PRICE_INFO_REVIEWS = "👍 User Reviews: <b>{score}</b> ({percentage}% positive)"
 
 
 # ── /tf2 flow ────────────────────────────────────────────────────────────────
@@ -134,6 +145,14 @@ WISHLIST_HEADER = (
     "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
     "\n"
     "Showing <b>{count}</b> tracked {item_word}\n"
+    "\n"
+)
+
+WISHLIST_STATS = (
+    "📊 <b>Wishlist Stats</b>\n"
+    "  💰 Total value: <b>{total_value}</b>\n"
+    "  🔥 On sale: <b>{sale_count}</b> {game_word}\n"
+    "  💵 Potential savings: <b>{savings}</b>\n"
     "\n"
 )
 

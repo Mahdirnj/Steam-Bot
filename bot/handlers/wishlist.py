@@ -35,6 +35,7 @@ from bot.messages import (
     WISHLIST_ITEM_SALE,
     WISHLIST_ITEM_UNAVAILABLE,
     WISHLIST_REFRESHING,
+    WISHLIST_STATS,
     WISHLIST_SUMMARY_EMPTY,
     WISHLIST_SUMMARY_HEADER,
 )
@@ -465,10 +466,17 @@ async def _build_wishlist_text(
 
     If summary_only is True, only include games currently on discount.
     Returns a beautifully formatted wishlist with proper spacing and hierarchy.
+    Includes stats section showing total value, sale count, and potential savings.
     """
     sale_items: list[dict] = []
     normal_items: list[dict] = []
     fetch_errors = 0
+
+    # Track stats
+    total_value_cents = 0
+    sale_original_cents = 0
+    sale_final_cents = 0
+    sale_count = 0
 
     capped = items[:_MAX_WISHLIST_FETCH]
     overflow = len(items) - _MAX_WISHLIST_FETCH
@@ -503,6 +511,8 @@ async def _build_wishlist_text(
             continue
 
         final = po.get("final_formatted", "?")
+        final_cents = po.get("final", 0)
+        initial_cents = po.get("initial", final_cents)
         pct = po.get("discount_percent", 0)
 
         if pct > 0:
@@ -513,9 +523,21 @@ async def _build_wishlist_text(
             item_info["initial"] = initial
             item_info["pct"] = pct
             sale_items.append(item_info)
+
+            # Track stats for sale items
+            sale_count += 1
+            sale_original_cents += initial_cents
+            sale_final_cents += final_cents
+            total_value_cents += final_cents
         else:
             item_info["price"] = final
             normal_items.append(item_info)
+
+            # Track stats for non-sale items
+            total_value_cents += final_cents
+
+    # Calculate savings (only from sale items)
+    savings_cents = sale_original_cents - sale_final_cents
 
     # Second pass: build the display
     lines: list[str] = []
@@ -542,6 +564,29 @@ async def _build_wishlist_text(
         item_word = "game" if len(items) == 1 else "games"
         header = WISHLIST_HEADER.format(count=len(items), item_word=item_word)
         lines.append(header)
+
+        # Stats section
+        if total_value_cents > 0 or sale_count > 0:
+            # Format total value (convert cents to display format)
+            if total_value_cents > 0:
+                total_value_str = f"{total_value_cents / 100:,.2f}"
+            else:
+                total_value_str = "0.00"
+
+            # Format savings
+            if savings_cents > 0:
+                savings_str = f"{savings_cents / 100:,.2f}"
+            else:
+                savings_str = "0.00"
+
+            game_word = "game" if sale_count == 1 else "games"
+            stats = WISHLIST_STATS.format(
+                total_value=total_value_str,
+                sale_count=sale_count,
+                game_word=game_word,
+                savings=savings_str
+            )
+            lines.append(stats)
 
         # Show sale items first (they're more interesting)
         if sale_items:

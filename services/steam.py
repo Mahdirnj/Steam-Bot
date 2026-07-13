@@ -24,6 +24,7 @@ from loguru import logger
 # --- Endpoints (stable; intentionally not configurable) ----------------------
 STORESEARCH_URL = "https://store.steampowered.com/api/storesearch/"
 APPDETAILS_URL = "https://store.steampowered.com/api/appdetails/"
+REVIEWS_URL = "https://store.steampowered.com/appreviews/{appid}"
 
 # Caps and limits.
 MAX_SEARCH_RESULTS = 5  # PROJECT.md §8 /price flow: "top 3-5 results as buttons".
@@ -163,3 +164,58 @@ async def appdetails(appid: int, cc: str) -> Optional[Dict[str, Any]]:
         # Defensive: success=True but no/invalid data — treat as unavailable.
         return None
     return data
+
+
+async def get_reviews(appid: int) -> Optional[Dict[str, Any]]:
+    """Fetch user review summary for a game from Steam's review endpoint.
+
+    Returns a dict with:
+        - total_reviews: int — total number of reviews
+        - total_positive: int — positive review count
+        - total_negative: int — negative review count
+        - review_score: str — description like "Very Positive", "Mixed", etc.
+        - review_percentage: float — positive percentage (0-100)
+
+    Returns None on failure.
+    """
+    try:
+        resp = await get_client().get(
+            REVIEWS_URL.format(appid=appid),
+            params={"json": "1"},
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("reviews network error for {}: {!r}", appid, exc)
+        return None
+
+    if resp.status_code != 200:
+        logger.warning("reviews non-200 ({}) for {}", resp.status_code, appid)
+        return None
+
+    try:
+        payload = resp.json()
+    except ValueError:
+        logger.warning("reviews returned non-JSON for {}", appid)
+        return None
+
+    if not payload.get("success"):
+        return None
+
+    summary = payload.get("query_summary", {})
+    total_reviews = summary.get("total_reviews", 0)
+    total_positive = summary.get("total_positive", 0)
+    total_negative = summary.get("total_negative", 0)
+    review_score_desc = summary.get("review_score_desc", "No user reviews")
+
+    # Calculate percentage
+    if total_reviews > 0:
+        review_percentage = round((total_positive / total_reviews) * 100, 1)
+    else:
+        review_percentage = 0.0
+
+    return {
+        "total_reviews": total_reviews,
+        "total_positive": total_positive,
+        "total_negative": total_negative,
+        "review_score": review_score_desc,
+        "review_percentage": review_percentage,
+    }

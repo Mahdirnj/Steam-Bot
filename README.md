@@ -49,6 +49,9 @@ Search any Steam game and see:
 - Number of TF2 keys/tickets needed to buy it
 - Game cover art preview
 - **Paste Steam URLs directly** for instant results
+- **Game info**: Developer, genres, release date, Metacritic score, platforms
+- **User reviews** with rating, percentage, and review counts
+- **Last update date** for games
 
 </td>
 <td width="50%">
@@ -71,6 +74,7 @@ Track games you want:
 - 🔥 Sale summary (only discounted games)
 - Automatic price change notifications
 - Clean, organized list with sale highlights
+- **Wishlist stats**: Total value, games on sale, potential savings
 
 </td>
 <td>
@@ -323,6 +327,60 @@ store.steampowered.com/app/1174180
 
 # Or just paste the URL directly in chat!
 ```
+
+---
+
+## 🎮 Game Info Card
+
+When you search for a game, the result card now shows additional information:
+
+- **Developer** — Who made the game
+- **Genres** — Action, RPG, Adventure, etc.
+- **Release Date** — When it launched (or "Coming Soon" for unreleased games)
+- **User Reviews** — Review rating with percentage (e.g., "Very Positive" at 87%)
+- **Metacritic Score** — If available, shows the critic score out of 100
+- **Platforms** — Windows, Mac, Linux support
+
+> **Note:** The last update date is shown when available from the Steam API. Not all games have this information available.
+
+### Review Ratings Explained
+
+Steam uses these rating categories:
+- **Overwhelmingly Positive** — 95%+ positive with 500+ reviews
+- **Very Positive** — 80%+ positive with 50+ reviews
+- **Mostly Positive** — 70-79% positive
+- **Mixed** — 40-69% positive
+- **Mostly Negative** — 20-39% positive
+- **Very Negative** — 20%+ positive with 50+ reviews
+- **Overwhelmingly Negative** — 20%+ positive with 500+ reviews
+
+### Example Game Info Card
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎮 Red Dead Redemption 2
+
+💰 Price: $59.99
+🔑 Keys needed: ~23.52 (≈47.05 tickets)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏢 Rockstar Games
+🎭 Action · Adventure · Western
+📅 Release date: Oct 26, 2018
+⭐ Metacritic: 97/100
+👍 User Reviews: Very Positive (87% positive)
+💻 Windows
+```
+
+---
+
+## 📊 Wishlist Stats
+
+Your wishlist now shows helpful statistics at the top:
+
+- **Total Value** — Sum of all wishlisted games' current prices
+- **Games on Sale** — How many games are currently discounted
+- **Potential Savings** — How much you'd save if you bought all discounted games now
 
 ---
 
